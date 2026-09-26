@@ -1,0 +1,12 @@
+centry:
+  budget:
+    categories:
+      dining:
+        monthly-limit: 300.00
+        warning-threshold-percent: 0.80
+      groceries:
+        monthly-limit: 500.00
+        warning-threshold-percent: 0.85
+      utilities:
+        monthly-limit: 250.00
+        warning-threshold-percent: 0.90
