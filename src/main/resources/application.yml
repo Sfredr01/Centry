@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: centry
+
+  kafka:
+    # Points to your Dockerized Kafka broker running on port 9092
+    bootstrap-servers: localhost:9092
+
+    # Producer Settings (HTTP -> Kafka)
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    # Consumer Settings (Kafka -> Spring Boot Listener)
+    consumer:
+      group-id: centry-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.centry.*"
