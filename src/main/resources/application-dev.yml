@@ -1,5 +1,6 @@
 centry:
   budget:
+    webhook-url: "http://localhost:4500/notification"
     categories:
       dining:
         monthly-limit: 300.00

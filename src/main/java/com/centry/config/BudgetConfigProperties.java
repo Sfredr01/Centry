@@ -3,6 +3,8 @@ package com.centry.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import com.centry.config.BudgetConfigProperties.CategoryLimit;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,7 +12,11 @@ import java.util.Map;
 @Configuration
 @ConfigurationProperties(prefix = "centry.budget")
 public class BudgetConfigProperties {
-
+    
+    private String webhookUrl;
+    public String getWebhookUrl() { return webhookUrl; }
+    public void setWebhookUrl(String webhookUrl) { this.webhookUrl = webhookUrl; }
+    
     /**
      * Map of category names (lowercase or normalized) to their monthly limit & warning threshold.
      */
