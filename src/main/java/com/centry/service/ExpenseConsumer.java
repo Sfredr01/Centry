@@ -3,7 +3,8 @@ package com.centry.service;
 import com.centry.config.KafkaTopicConfig;
 import com.centry.model.BudgetAlertEvent;
 import com.centry.model.BudgetStatus;
-import com.centry.dto.ExpenseEvent; // Adjust to match your existing event model name
+import com.centry.model.SubscriptionAlertEvent;
+import com.centry.dto.ExpenseEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,10 +17,14 @@ public class ExpenseConsumer {
     private static final Logger log = LoggerFactory.getLogger(ExpenseConsumer.class);
 
     private final BudgetTrackingService budgetTrackingService;
+    private final SubscriptionTrackingService subscriptionTrackingService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public ExpenseConsumer(BudgetTrackingService budgetTrackingService, KafkaTemplate<String, Object> kafkaTemplate) {
+    public ExpenseConsumer(BudgetTrackingService budgetTrackingService,
+                           SubscriptionTrackingService subscriptionTrackingService,
+                           KafkaTemplate<String, Object> kafkaTemplate) {
         this.budgetTrackingService = budgetTrackingService;
+        this.subscriptionTrackingService = subscriptionTrackingService;
         this.kafkaTemplate = kafkaTemplate;
     }
 
@@ -51,6 +56,15 @@ public class ExpenseConsumer {
 
             // Publish to budget-alerts topic
             kafkaTemplate.send(KafkaTopicConfig.BUDGET_ALERTS_TOPIC, status.getCategory(), alertEvent);
+        }
+
+        // Process subscription and anomaly detection
+        SubscriptionAlertEvent subscriptionAlert = subscriptionTrackingService.processAndCheckSubscription(
+                event.getMerchant(), event.getAmount(), event.getTimestamp());
+
+        if (subscriptionAlert != null) {
+            log.warn("Triggering Subscription Alert: {}", subscriptionAlert.getMessage());
+            kafkaTemplate.send(KafkaTopicConfig.SUBSCRIPTION_ALERTS_TOPIC, subscriptionAlert.getMerchant(), subscriptionAlert);
         }
     }
 }
