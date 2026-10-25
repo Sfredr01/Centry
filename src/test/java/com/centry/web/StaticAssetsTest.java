@@ -41,7 +41,7 @@ class StaticAssetsTest {
 
     @Test
     void noExternalScriptOrStylesheetUrls() throws Exception {
-        for (String path : List.of("/login", "/", "/add")) {
+        for (String path : List.of("/login", "/", "/add", "/budgets")) {
             Document page = Html.of(mockMvc.perform(get(path).with(user("admin").roles("ADMIN")))
                     .andExpect(status().isOk()));
             // The pages do load the vendored copies (and not, say, only Spring's generated stylesheet).

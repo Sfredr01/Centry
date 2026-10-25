@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(FixedClockConfig.class)
 class LayoutTest {
 
-    private static final List<String> PAGES = List.of("/", "/add");
+    private static final List<String> PAGES = List.of("/", "/add", "/budgets");
 
     @Autowired
     private MockMvc mockMvc;
