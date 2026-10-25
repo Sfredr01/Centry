@@ -66,14 +66,8 @@ public class ExpenseService {
 
             // 1. Persist Expense Entity
             LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now();
-            ExpenseEntity expenseEntity = ExpenseEntity.builder()
-                    .transactionId(event.getTransactionId())
-                    .merchant(event.getMerchant())
-                    .amount(event.getAmount())
-                    .category(event.getCategory())
-                    .timestamp(txTime)
-                    .build();
-            expenseRepository.save(expenseEntity);
+            expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(), event.getMerchant(),
+                    event.getAmount(), event.getCategory(), txTime));
 
             // 2. Update in-memory budget state
             BudgetStatus status = budgetTrackingService.recordExpense(event.getCategory(), event.getAmount());
@@ -98,15 +92,9 @@ public class ExpenseService {
                 log.warn("Triggering Budget Alert: {}", msg);
 
                 // Persist budget alert
-                budgetAlertRepository.save(BudgetAlertEntity.builder()
-                        .category(status.getCategory())
-                        .currentSpend(status.getCurrentSpend())
-                        .monthlyLimit(status.getMonthlyLimit())
-                        .warningAmount(status.getWarningAmount())
-                        .status(status.getStatus())
-                        .message(msg)
-                        .timestamp(LocalDateTime.now())
-                        .build());
+                budgetAlertRepository.save(new BudgetAlertEntity(null, status.getCategory(),
+                        status.getCurrentSpend(), status.getMonthlyLimit(), status.getWarningAmount(),
+                        status.getStatus(), msg, LocalDateTime.now()));
 
                 events.publishEvent(alertEvent);
             }
@@ -120,14 +108,10 @@ public class ExpenseService {
                 log.warn("Triggering Subscription Alert: {}", subscriptionAlert.getMessage());
 
                 // Persist subscription alert
-                subscriptionAlertRepository.save(SubscriptionAlertEntity.builder()
-                        .merchant(subscriptionAlert.getMerchant())
-                        .previousAmount(subscriptionAlert.getPreviousAmount())
-                        .currentAmount(subscriptionAlert.getCurrentAmount())
-                        .anomalyType(subscriptionAlert.getAnomalyType())
-                        .message(subscriptionAlert.getMessage())
-                        .timestamp(subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now())
-                        .build());
+                subscriptionAlertRepository.save(new SubscriptionAlertEntity(null, subscriptionAlert.getMerchant(),
+                        subscriptionAlert.getPreviousAmount(), subscriptionAlert.getCurrentAmount(),
+                        subscriptionAlert.getAnomalyType(), subscriptionAlert.getMessage(),
+                        subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now()));
 
                 events.publishEvent(subscriptionAlert);
             }

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,16 +33,8 @@ public class DashboardController {
 
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> getSummary() {
-        Map<String, BigDecimal> categorySpend = new HashMap<>();
-        List<Object[]> sums = expenseRepository.sumAmountByCategory();
-        for (Object[] row : sums) {
-            String category = (String) row[0];
-            BigDecimal total = (BigDecimal) row[1];
-            categorySpend.put(category, total);
-        }
-
         Map<String, Object> response = new HashMap<>();
-        response.put("categorySpend", categorySpend);
+        response.put("categorySpend", expenseRepository.sumAmountByCategory());
         response.put("totalExpensesCount", expenseRepository.count());
         return ResponseEntity.ok(response);
     }

@@ -2,20 +2,19 @@ package com.centry.repository;
 
 import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.SubscriptionAlertEntity;
+import com.centry.model.BudgetStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@SpringBootTest
 @ActiveProfiles("test")
 class AlertRepositoriesTest {
 
@@ -27,60 +26,88 @@ class AlertRepositoriesTest {
     @Autowired
     private SubscriptionAlertRepository subscriptionRepository;
 
+    @BeforeEach
+    void clean() {
+        budgetRepository.deleteAll();
+        subscriptionRepository.deleteAll();
+    }
+
     @Test
     void budgetAlertsOrderedNewestFirst() {
-        budgetRepository.saveAll(List.of(
-                budget("a", BASE.plusHours(1)), budget("c", BASE.plusHours(3)), budget("b", BASE.plusHours(2))));
+        budgetRepository.save(budget("a", BASE.plusHours(1)));
+        budgetRepository.save(budget("c", BASE.plusHours(3)));
+        budgetRepository.save(budget("b", BASE.plusHours(2)));
 
         assertThat(budgetRepository.findTop50ByOrderByTimestampDesc())
-                .extracting(BudgetAlertEntity::getCategory)
+                .extracting(BudgetAlertEntity::category)
                 .containsExactly("c", "b", "a");
     }
 
     @Test
     void budgetAlertsCappedAt50KeepingNewest() {
-        List<BudgetAlertEntity> all = new ArrayList<>();
         for (int i = 0; i < 55; i++) {
-            all.add(budget("c" + i, BASE.plusMinutes(i)));
+            budgetRepository.save(budget("c" + i, BASE.plusMinutes(i)));
         }
-        budgetRepository.saveAll(all);
 
-        List<BudgetAlertEntity> result = budgetRepository.findTop50ByOrderByTimestampDesc();
+        var result = budgetRepository.findTop50ByOrderByTimestampDesc();
         assertThat(result).hasSize(50);
-        assertThat(result.get(0).getCategory()).isEqualTo("c54");
-        assertThat(result.get(49).getCategory()).isEqualTo("c5");
+        assertThat(result.get(0).category()).isEqualTo("c54");
+        assertThat(result.get(49).category()).isEqualTo("c5");
+    }
+
+    @Test
+    void budgetAlertRoundTripsAllFieldsAndNulls() {
+        BudgetAlertEntity full = new BudgetAlertEntity(null, "dining", new BigDecimal("105.05"),
+                new BigDecimal("100.00"), new BigDecimal("80.00"), BudgetStatus.Status.LIMIT_EXCEEDED, "over", BASE);
+        BudgetAlertEntity saved = budgetRepository.save(full);
+
+        assertThat(saved.id()).isNotNull();
+        assertThat(budgetRepository.findTop50ByOrderByTimestampDesc()).containsExactly(saved);
+
+        budgetRepository.deleteAll();
+        BudgetAlertEntity sparse = budgetRepository.save(budget("x", BASE));
+        assertThat(budgetRepository.findTop50ByOrderByTimestampDesc()).containsExactly(sparse);
+        assertThat(sparse.currentSpend()).isNull();
+        assertThat(sparse.status()).isNull();
     }
 
     @Test
     void subscriptionAlertsOrderedNewestFirst() {
-        subscriptionRepository.saveAll(List.of(
-                subscription("a", BASE.plusHours(1)), subscription("c", BASE.plusHours(3)),
-                subscription("b", BASE.plusHours(2))));
+        subscriptionRepository.save(subscription("a", BASE.plusHours(1)));
+        subscriptionRepository.save(subscription("c", BASE.plusHours(3)));
+        subscriptionRepository.save(subscription("b", BASE.plusHours(2)));
 
         assertThat(subscriptionRepository.findTop50ByOrderByTimestampDesc())
-                .extracting(SubscriptionAlertEntity::getMerchant)
+                .extracting(SubscriptionAlertEntity::merchant)
                 .containsExactly("c", "b", "a");
     }
 
     @Test
     void subscriptionAlertsCappedAt50KeepingNewest() {
-        List<SubscriptionAlertEntity> all = new ArrayList<>();
         for (int i = 0; i < 55; i++) {
-            all.add(subscription("m" + i, BASE.plusMinutes(i)));
+            subscriptionRepository.save(subscription("m" + i, BASE.plusMinutes(i)));
         }
-        subscriptionRepository.saveAll(all);
 
-        List<SubscriptionAlertEntity> result = subscriptionRepository.findTop50ByOrderByTimestampDesc();
+        var result = subscriptionRepository.findTop50ByOrderByTimestampDesc();
         assertThat(result).hasSize(50);
-        assertThat(result.get(0).getMerchant()).isEqualTo("m54");
-        assertThat(result.get(49).getMerchant()).isEqualTo("m5");
+        assertThat(result.get(0).merchant()).isEqualTo("m54");
+        assertThat(result.get(49).merchant()).isEqualTo("m5");
+    }
+
+    @Test
+    void subscriptionAlertRoundTripsAllFields() {
+        SubscriptionAlertEntity saved = subscriptionRepository.save(new SubscriptionAlertEntity(null, "Netflix",
+                new BigDecimal("15.49"), new BigDecimal("17.99"), "PRICE_INCREASE", "up", BASE));
+
+        assertThat(saved.id()).isNotNull();
+        assertThat(subscriptionRepository.findTop50ByOrderByTimestampDesc()).containsExactly(saved);
     }
 
     private BudgetAlertEntity budget(String category, LocalDateTime ts) {
-        return BudgetAlertEntity.builder().category(category).timestamp(ts).build();
+        return new BudgetAlertEntity(null, category, null, null, null, null, null, ts);
     }
 
     private SubscriptionAlertEntity subscription(String merchant, LocalDateTime ts) {
-        return SubscriptionAlertEntity.builder().merchant(merchant).timestamp(ts).build();
+        return new SubscriptionAlertEntity(null, merchant, null, null, null, null, ts);
     }
 }

@@ -80,10 +80,10 @@ class KafkaProfileIngestTest {
 
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             ExpenseEntity row = expenseRepository.findAll().stream()
-                    .filter(e -> tx.equals(e.getTransactionId())).findFirst().orElseThrow();
-            assertThat(row.getMerchant()).isEqualTo("Cafe");
-            assertThat(row.getAmount()).isEqualByComparingTo("4.50");
-            assertThat(row.getCategory()).isEqualTo("misc");
+                    .filter(e -> tx.equals(e.transactionId())).findFirst().orElseThrow();
+            assertThat(row.merchant()).isEqualTo("Cafe");
+            assertThat(row.amount()).isEqualByComparingTo("4.50");
+            assertThat(row.category()).isEqualTo("misc");
         });
     }
 

@@ -85,10 +85,10 @@ class ExpenseApiTest {
         List<ExpenseEntity> rows = expenseRepository.findAll();
         assertThat(rows).hasSize(1);
         ExpenseEntity row = rows.get(0);
-        assertThat(row.getTransactionId()).isEqualTo("tx-sync");
-        assertThat(row.getMerchant()).isEqualTo("Cafe");
-        assertThat(row.getAmount()).isEqualByComparingTo("4.50");
-        assertThat(row.getCategory()).isEqualTo("misc");
+        assertThat(row.transactionId()).isEqualTo("tx-sync");
+        assertThat(row.merchant()).isEqualTo("Cafe");
+        assertThat(row.amount()).isEqualByComparingTo("4.50");
+        assertThat(row.category()).isEqualTo("misc");
     }
 
     @Test
