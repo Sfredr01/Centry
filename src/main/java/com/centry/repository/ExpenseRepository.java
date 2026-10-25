@@ -7,12 +7,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -100,16 +97,6 @@ public class ExpenseRepository {
 
     public long count() {
         return jdbc.sql("SELECT COUNT(*) FROM expense").query(Long.class).single();
-    }
-
-    /** Total per category; exact because the sum is taken over integer cents. */
-    public Map<String, BigDecimal> sumAmountByCategory() {
-        Map<String, BigDecimal> totals = new LinkedHashMap<>();
-        jdbc.sql("SELECT category, SUM(amount_cents) AS total FROM expense GROUP BY category ORDER BY category")
-                .query(rs -> {
-                    totals.put(rs.getString("category"), Cents.money(rs, "total"));
-                });
-        return totals;
     }
 
     public void deleteAll() {

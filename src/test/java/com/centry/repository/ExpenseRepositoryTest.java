@@ -46,24 +46,6 @@ class ExpenseRepositoryTest {
                 .containsExactly(new BigDecimal("0.10"), new BigDecimal("0.20"));
         assertThat(rows.get(0)).isEqualTo(a);
         assertThat(rows.get(0).timestamp()).isEqualTo(TS);
-        assertThat(repository.sumAmountByCategory().get("dining")).isEqualTo(new BigDecimal("0.30"));
-    }
-
-    @Test
-    void sumAmountByCategoryGroupsAndSums() {
-        repository.save(expense("dining", "10.50"));
-        repository.save(expense("dining", "4.50"));
-        repository.save(expense("travel", "200.00"));
-
-        assertThat(repository.sumAmountByCategory())
-                .hasSize(2)
-                .containsEntry("dining", new BigDecimal("15.00"))
-                .containsEntry("travel", new BigDecimal("200.00"));
-    }
-
-    @Test
-    void sumAmountByCategoryIsEmptyWithNoExpenses() {
-        assertThat(repository.sumAmountByCategory()).isEmpty();
     }
 
     @Test
