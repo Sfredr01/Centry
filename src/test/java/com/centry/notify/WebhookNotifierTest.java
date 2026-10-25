@@ -16,6 +16,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -64,6 +65,16 @@ class WebhookNotifierTest {
         assertThat(json.get("text").asText()).isEqualTo("🚨 **LIMIT_EXCEEDED**: Over budget");
         assertThat(mapper.readTree(server.requests().get(1).body()).get("content").asText())
                 .isEqualTo("⚠️ **WARNING_EXCEEDED**: Getting close");
+    }
+
+    // Some webhook endpoints reject chunked uploads, so the body must go out with a Content-Length.
+    @Test
+    void sendsContentLengthNotChunked() {
+        notifier().send(alert(BudgetLevel.LIMIT_EXCEEDED, "Over budget"));
+
+        var request = server.requests().get(0);
+        assertThat(request.header("Content-Length")).isEqualTo(String.valueOf(request.body().getBytes(UTF_8).length));
+        assertThat(request.header("Transfer-Encoding")).isNull();
     }
 
     @Test

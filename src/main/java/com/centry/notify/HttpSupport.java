@@ -1,5 +1,6 @@
 package com.centry.notify;
 
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -21,7 +22,8 @@ final class HttpSupport {
                 .build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(props.readTimeout());
-        return builder.requestFactory(factory).build();
+        // The JDK client streams bodies of unknown length as chunked; buffering gives them a Content-Length.
+        return builder.requestFactory(new BufferingClientHttpRequestFactory(factory)).build();
     }
 
     static void execute(RestClient.RequestBodySpec request) {
