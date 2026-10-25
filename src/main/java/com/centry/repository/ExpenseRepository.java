@@ -6,9 +6,12 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public class ExpenseRepository {
@@ -31,17 +34,30 @@ public class ExpenseRepository {
                 e.category(), e.timestamp());
     }
 
+    private static final String SELECT =
+            "SELECT id, transaction_id, merchant, amount_cents, category, occurred_at FROM expense";
+
     public List<ExpenseEntity> findAll() {
-        return jdbc.sql("SELECT id, transaction_id, merchant, amount_cents, category, occurred_at "
-                        + "FROM expense ORDER BY id")
-                .query((rs, n) -> new ExpenseEntity(
-                        rs.getLong("id"),
-                        rs.getString("transaction_id"),
-                        rs.getString("merchant"),
-                        Cents.money(rs, "amount_cents"),
-                        rs.getString("category"),
-                        Cents.fromText(rs.getString("occurred_at"))))
-                .list();
+        return jdbc.sql(SELECT + " ORDER BY id").query(ExpenseRepository::map).list();
+    }
+
+    public Optional<ExpenseEntity> findById(long id) {
+        return jdbc.sql(SELECT + " WHERE id = ?").param(id).query(ExpenseRepository::map).optional();
+    }
+
+    public Optional<ExpenseEntity> findByTransactionId(String transactionId) {
+        return jdbc.sql(SELECT + " WHERE transaction_id = ?").param(transactionId)
+                .query(ExpenseRepository::map).optional();
+    }
+
+    private static ExpenseEntity map(ResultSet rs, int row) throws SQLException {
+        return new ExpenseEntity(
+                rs.getLong("id"),
+                rs.getString("transaction_id"),
+                rs.getString("merchant"),
+                Cents.money(rs, "amount_cents"),
+                rs.getString("category"),
+                Cents.fromText(rs.getString("occurred_at")));
     }
 
     public long count() {

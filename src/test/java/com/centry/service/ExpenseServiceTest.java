@@ -97,6 +97,18 @@ class ExpenseServiceTest {
     }
 
     @Test
+    void returnsTheSavedExpenseAsCreated() {
+        ExpenseEntity saved = new ExpenseEntity(42L, "tx-1", "Netflix", new BigDecimal("15.99"),
+                "Entertainment", TX_TIME);
+        when(expenseRepository.save(any())).thenReturn(saved);
+
+        ExpenseService.Recorded result = service.record(event(TX_TIME));
+
+        assertThat(result.expense()).isSameAs(saved);
+        assertThat(result.created()).isTrue();
+    }
+
+    @Test
     void nullTimestampDefaultsFromClock() {
         service.record(event(null));
 

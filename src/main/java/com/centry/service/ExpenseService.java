@@ -62,16 +62,20 @@ public class ExpenseService {
         this.expenseProcessingTimer = meterRegistry.timer("centry.expense.processing.duration");
     }
 
+    /** Outcome of {@link #record}: the stored expense, and whether this call created it. */
+    public record Recorded(ExpenseEntity expense, boolean created) {
+    }
+
     /** Single use case: persist, budget check, subscription check, alerts, metrics. */
-    public void record(ExpenseEvent event) {
-        expenseProcessingTimer.record(() -> {
+    public Recorded record(ExpenseEvent event) {
+        return expenseProcessingTimer.record(() -> {
             expensesConsumedCounter.increment();
             log.info("Recording expense: merchant='{}', amount=${}, category='{}'",
                     event.getMerchant(), event.getAmount(), event.getCategory());
 
             // 1. Persist Expense Entity
             LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now(clock);
-            expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(), event.getMerchant(),
+            ExpenseEntity saved = expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(), event.getMerchant(),
                     event.getAmount(), event.getCategory(), txTime));
 
             // 2. Update in-memory budget state
@@ -120,6 +124,8 @@ public class ExpenseService {
 
                 events.publishEvent(subscriptionAlert);
             }
+
+            return new Recorded(saved, true);
         });
     }
 }

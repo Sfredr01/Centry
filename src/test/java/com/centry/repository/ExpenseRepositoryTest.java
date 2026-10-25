@@ -65,6 +65,20 @@ class ExpenseRepositoryTest {
     }
 
     @Test
+    void findsByIdAndByTransactionId() {
+        ExpenseEntity saved = repository.save(expense("dining", "10.50"));
+
+        assertThat(repository.findById(saved.id())).contains(saved);
+        assertThat(repository.findByTransactionId(saved.transactionId())).contains(saved);
+    }
+
+    @Test
+    void findsNothingForUnknownKeys() {
+        assertThat(repository.findById(999_999L)).isEmpty();
+        assertThat(repository.findByTransactionId("nope")).isEmpty();
+    }
+
+    @Test
     void rejectsSubCentAmount() {
         assertThatThrownBy(() -> repository.save(expense("dining", "4.505")))
                 .isInstanceOf(ArithmeticException.class);
