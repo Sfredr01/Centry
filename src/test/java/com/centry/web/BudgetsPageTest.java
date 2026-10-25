@@ -64,7 +64,7 @@ class BudgetsPageTest {
         jdbc.sql("DELETE FROM budget").update();
         budgets.upsert("food", new BigDecimal("100.00"), 80);
         expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "Market", new BigDecimal("85.00"),
-                "Food", LocalDateTime.of(2026, 3, 2, 9, 0)));
+                "Food", LocalDateTime.of(2026, 3, 2, 9, 0), null, null));
     }
 
     private static RequestPostProcessor admin() {

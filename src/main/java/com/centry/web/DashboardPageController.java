@@ -26,7 +26,7 @@ class DashboardPageController {
         YearMonth month = YearMonth.now(clock);
         model.addAttribute("month", month);
         model.addAttribute("budgets", statusQuery.all(month));
-        model.addAttribute("recent", expenses.findRecent(RECENT_LIMIT));
+        model.addAttribute("recent", expenses.findRecent(RECENT_LIMIT, null));
         return "dashboard";
     }
 }

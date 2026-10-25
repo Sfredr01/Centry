@@ -35,7 +35,7 @@ class PersistenceTest {
     void dataSurvivesContextRestart() {
         try (ConfigurableApplicationContext first = start()) {
             first.getBean(ExpenseRepository.class).save(new ExpenseEntity(
-                    null, "tx-restart", "Cafe", new BigDecimal("4.50"), "dining", LocalDateTime.of(2026, 1, 2, 3, 4)));
+                    null, "tx-restart", "Cafe", new BigDecimal("4.50"), "dining", LocalDateTime.of(2026, 1, 2, 3, 4), null, null));
         }
 
         try (ConfigurableApplicationContext second = start()) {
@@ -56,7 +56,7 @@ class PersistenceTest {
         try (ConfigurableApplicationContext first = start()) {
             first.getBean(BudgetRepository.class).upsert("dining", new BigDecimal("100.00"), 80);
             first.getBean(ExpenseRepository.class).save(new ExpenseEntity(
-                    null, "tx-budget", "Cafe", new BigDecimal("85.00"), "Dining", LocalDateTime.of(2026, 1, 2, 3, 4)));
+                    null, "tx-budget", "Cafe", new BigDecimal("85.00"), "Dining", LocalDateTime.of(2026, 1, 2, 3, 4), null, null));
             before = first.getBean(BudgetStatusQuery.class).status("dining", january).orElseThrow();
         }
 

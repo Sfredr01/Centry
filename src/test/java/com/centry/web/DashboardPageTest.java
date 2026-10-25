@@ -53,7 +53,7 @@ class DashboardPageTest {
 
     private void spend(String merchant, String category, String amount, LocalDateTime at) {
         expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), merchant, new BigDecimal(amount),
-                category, at));
+                category, at, null, null));
     }
 
     private Document dashboard() throws Exception {

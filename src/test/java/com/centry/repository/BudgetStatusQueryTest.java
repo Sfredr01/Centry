@@ -44,7 +44,7 @@ class BudgetStatusQueryTest {
 
     private void spend(String category, String amount, LocalDateTime at) {
         expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "Shop", new BigDecimal(amount),
-                category, at));
+                category, at, null, null));
     }
 
     private BudgetStatus status(String key, YearMonth month) {

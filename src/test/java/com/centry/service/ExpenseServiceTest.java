@@ -104,7 +104,7 @@ class ExpenseServiceTest {
     @Test
     void returnsTheSavedExpenseAsCreated() {
         ExpenseEntity saved = new ExpenseEntity(42L, "tx-1", "Netflix", new BigDecimal("15.99"),
-                "Entertainment", TX_TIME);
+                "Entertainment", TX_TIME, null, null);
         when(expenseRepository.save(any())).thenReturn(saved);
 
         ExpenseService.Recorded result = service.record(event(TX_TIME));
@@ -127,7 +127,7 @@ class ExpenseServiceTest {
     }
 
     private ExpenseEntity existing(LocalDateTime ts) {
-        return new ExpenseEntity(9L, "tx-1", "Netflix", new BigDecimal("15.990"), "Entertainment", ts);
+        return new ExpenseEntity(9L, "tx-1", "Netflix", new BigDecimal("15.990"), "Entertainment", ts, null, null);
     }
 
     private void assertNoSideEffects() {

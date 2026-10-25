@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
+
+import com.centry.model.Role;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,13 +28,24 @@ class ExpenseRepositoryTest {
     @Autowired
     private ExpenseRepository repository;
 
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private JdbcClient jdbc;
+
     @BeforeEach
     void clean() {
         repository.deleteAll();
+        jdbc.sql("DELETE FROM users WHERE username LIKE 'repo-%'").update();
+    }
+
+    private long user(String name) {
+        return users.insert("repo-" + name, name, null, Role.MEMBER, TS).id();
     }
 
     private ExpenseEntity expense(String category, String amount) {
-        return new ExpenseEntity(null, "tx-" + category + amount, "m", new BigDecimal(amount), category, TS);
+        return new ExpenseEntity(null, "tx-" + category + amount, "m", new BigDecimal(amount), category, TS, null, null);
     }
 
     @Test
@@ -55,23 +69,23 @@ class ExpenseRepositoryTest {
         ExpenseEntity tieLast = repository.save(at("c", TS.plusDays(2)));
         repository.save(at("d", TS.minusDays(5)));
 
-        assertThat(repository.findRecent(3)).containsExactly(tieLast, tieFirst, older);
-        assertThat(repository.findRecent(10)).hasSize(4);
+        assertThat(repository.findRecent(3, null)).containsExactly(tieLast, tieFirst, older);
+        assertThat(repository.findRecent(10, null)).hasSize(4);
     }
 
     @Test
     void recentCategoriesAreDistinctByKeyNewestFirstAndKeepLatestSpelling() {
-        repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.00"), "Dining", TS));
-        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("1.00"), "dining ", TS));
-        repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("1.00"), "Fuel", TS));
-        repository.save(new ExpenseEntity(null, "4", "m", new BigDecimal("1.00"), "Gifts", TS));
+        repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.00"), "Dining", TS, null, null));
+        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("1.00"), "dining ", TS, null, null));
+        repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("1.00"), "Fuel", TS, null, null));
+        repository.save(new ExpenseEntity(null, "4", "m", new BigDecimal("1.00"), "Gifts", TS, null, null));
 
         assertThat(repository.recentCategories(10)).containsExactly("Gifts", "Fuel", "dining ");
         assertThat(repository.recentCategories(2)).containsExactly("Gifts", "Fuel");
     }
 
     private ExpenseEntity at(String id, LocalDateTime when) {
-        return new ExpenseEntity(null, id, "m", new BigDecimal("1.00"), "dining", when);
+        return new ExpenseEntity(null, id, "m", new BigDecimal("1.00"), "dining", when, null, null);
     }
 
     @Test
@@ -109,5 +123,55 @@ class ExpenseRepositoryTest {
         assertThatThrownBy(() -> repository.save(expense("dining", "4.505")))
                 .isInstanceOf(ArithmeticException.class);
         assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void attributionRoundTripsAndStaysNullWhenUnknown() {
+        long ann = user("ann");
+        long bob = user("bob");
+        ExpenseEntity attributed = repository.save(new ExpenseEntity(null, "a", "m", new BigDecimal("1.00"), "c", TS, ann, bob));
+        ExpenseEntity legacy = repository.save(new ExpenseEntity(null, "b", "m", new BigDecimal("1.00"), "c", TS, null, null));
+
+        assertThat(attributed.spentBy()).isEqualTo(ann);
+        assertThat(attributed.createdBy()).isEqualTo(bob);
+        assertThat(repository.findById(attributed.id()).orElseThrow()).isEqualTo(attributed);
+        assertThat(repository.findById(legacy.id()).orElseThrow().spentBy()).isNull();
+        assertThat(repository.findById(legacy.id()).orElseThrow().createdBy()).isNull();
+    }
+
+    @Test
+    void findRecentCanBeScopedToOneMember() {
+        long ann = user("ann");
+        long bob = user("bob");
+        ExpenseEntity a1 = repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.00"), "c", TS, ann, null));
+        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("1.00"), "c", TS, bob, null));
+        ExpenseEntity a2 = repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("1.00"), "c", TS, ann, null));
+
+        assertThat(repository.findRecent(10, ann)).containsExactly(a2, a1);
+        assertThat(repository.findRecent(10, null)).hasSize(3);
+    }
+
+    @Test
+    void updateChangesEditableFieldsAndKeepsIdentityAndCreator() {
+        long ann = user("ann");
+        long bob = user("bob");
+        ExpenseEntity saved = repository.save(new ExpenseEntity(null, "u", "m", new BigDecimal("1.00"), "c", TS, ann, bob));
+        LocalDateTime later = TS.plusDays(3);
+
+        repository.update(new ExpenseEntity(saved.id(), "ignored", "shop", new BigDecimal("9.99"), "food", later,
+                bob, ann));
+
+        assertThat(repository.findById(saved.id()).orElseThrow()).isEqualTo(new ExpenseEntity(saved.id(), "u", "shop",
+                new BigDecimal("9.99"), "food", later, bob, bob));
+    }
+
+    @Test
+    void deleteRemovesOnlyThatRow() {
+        ExpenseEntity gone = repository.save(expense("dining", "1.00"));
+        ExpenseEntity kept = repository.save(expense("dining", "2.00"));
+
+        repository.deleteById(gone.id());
+
+        assertThat(repository.findAll()).containsExactly(kept);
     }
 }

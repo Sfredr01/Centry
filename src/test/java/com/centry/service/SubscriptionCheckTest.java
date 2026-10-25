@@ -66,7 +66,7 @@ class SubscriptionCheckTest {
             clean();
             // Stored behind the service's back: a map filled only by record() could not know about it.
             expenses.save(new com.centry.entity.ExpenseEntity(null, "seed-1", "Netflix", new BigDecimal("15.49"),
-                    "subscriptions", AT.minusDays(30)));
+                    "subscriptions", AT.minusDays(30), null, null));
 
             service.record(charge("  NETFLIX ", "17.99"));
 

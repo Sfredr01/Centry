@@ -103,7 +103,7 @@ class QuickAddPageTest {
         budgets.upsert("food", new BigDecimal("100.00"), 80);
         for (String category : new String[] {"Dining", "dining", "Fuel", "FOOD"}) {
             expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "m", BigDecimal.ONE, category,
-                    LocalDateTime.of(2026, 3, 1, 0, 0)));
+                    LocalDateTime.of(2026, 3, 1, 0, 0), null, null));
         }
 
         Document page = Html.of(getAdd("/add"));
@@ -228,7 +228,7 @@ class QuickAddPageTest {
                         .param("amount", "3.00").param("category", "Food"))
                 .andExpect(status().isOk());
 
-        assertThat(expenses.findRecent(5)).singleElement().satisfies(saved -> {
+        assertThat(expenses.findRecent(5, null)).singleElement().satisfies(saved -> {
             assertThat(saved.merchant()).isEqualTo("Food");
             assertUuid(saved.transactionId());
         });

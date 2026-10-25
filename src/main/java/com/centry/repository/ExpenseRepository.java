@@ -30,10 +30,11 @@ public class ExpenseRepository {
         var keys = new GeneratedKeyHolder();
         try {
             jdbc.sql("""
-                            INSERT INTO expense (transaction_id, merchant, amount_cents, category, occurred_at)
-                            VALUES (?, ?, ?, ?, ?)""")
+                            INSERT INTO expense (transaction_id, merchant, amount_cents, category, occurred_at,
+                                                 spent_by, created_by)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)""")
                     .params(e.transactionId(), e.merchant(), Cents.toCents(e.amount()), e.category(),
-                            Cents.toText(e.timestamp()))
+                            Cents.toText(e.timestamp()), e.spentBy(), e.createdBy())
                     .update(keys);
         } catch (UncategorizedSQLException ex) {
             if (ex.getSQLException().getMessage().contains(SQLITE_CONSTRAINT_UNIQUE)) {
@@ -42,19 +43,41 @@ public class ExpenseRepository {
             throw ex;
         }
         return new ExpenseEntity(keys.getKey().longValue(), e.transactionId(), e.merchant(), e.amount(),
-                e.category(), e.timestamp());
+                e.category(), e.timestamp(), e.spentBy(), e.createdBy());
+    }
+
+    /** Rewrites what an edit may change; the transaction id and the creator stay as stored. */
+    public void update(ExpenseEntity e) {
+        jdbc.sql("""
+                        UPDATE expense SET merchant = ?, amount_cents = ?, category = ?, occurred_at = ?, spent_by = ?
+                         WHERE id = ?""")
+                .params(e.merchant(), Cents.toCents(e.amount()), e.category(), Cents.toText(e.timestamp()),
+                        e.spentBy(), e.id())
+                .update();
+    }
+
+    public void deleteById(long id) {
+        jdbc.sql("DELETE FROM expense WHERE id = ?").param(id).update();
     }
 
     private static final String SELECT =
-            "SELECT id, transaction_id, merchant, amount_cents, category, occurred_at FROM expense";
+            "SELECT id, transaction_id, merchant, amount_cents, category, occurred_at, spent_by, created_by FROM expense";
 
     public List<ExpenseEntity> findAll() {
         return jdbc.sql(SELECT + " ORDER BY id").query(ExpenseRepository::map).list();
     }
 
-    /** The latest expenses, newest date first; ties (same timestamp) go to the one recorded last. */
-    public List<ExpenseEntity> findRecent(int limit) {
-        return jdbc.sql(SELECT + " ORDER BY occurred_at DESC, id DESC LIMIT ?").param(limit)
+    /**
+     * The latest expenses, newest date first; ties (same timestamp) go to the one recorded last.
+     *
+     * @param spentBy only this member's expenses, or null for everyone's
+     */
+    public List<ExpenseEntity> findRecent(int limit, Long spentBy) {
+        // Two statements rather than "? IS NULL OR": SQLite only uses the (spent_by, occurred_at) index for a plain =.
+        return (spentBy == null
+                ? jdbc.sql(SELECT + " ORDER BY occurred_at DESC, id DESC LIMIT ?").param(limit)
+                : jdbc.sql(SELECT + " WHERE spent_by = ? ORDER BY occurred_at DESC, id DESC LIMIT ?")
+                        .params(spentBy, limit))
                 .query(ExpenseRepository::map).list();
     }
 
@@ -92,7 +115,14 @@ public class ExpenseRepository {
                 rs.getString("merchant"),
                 Cents.money(rs, "amount_cents"),
                 rs.getString("category"),
-                Cents.fromText(rs.getString("occurred_at")));
+                Cents.fromText(rs.getString("occurred_at")),
+                nullableLong(rs, "spent_by"),
+                nullableLong(rs, "created_by"));
+    }
+
+    private static Long nullableLong(ResultSet rs, String column) throws SQLException {
+        long value = rs.getLong(column);
+        return rs.wasNull() ? null : value;
     }
 
     public long count() {

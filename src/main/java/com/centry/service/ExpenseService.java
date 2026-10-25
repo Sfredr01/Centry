@@ -89,7 +89,7 @@ public class ExpenseService {
             ExpenseEntity saved;
             try {
                 saved = expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(),
-                        event.getMerchant(), event.getAmount(), event.getCategory(), txTime));
+                        event.getMerchant(), event.getAmount(), event.getCategory(), txTime, null, null));
             } catch (DuplicateKeyException race) {
                 // A concurrent request stored the same key between the lookup and the insert.
                 return replay(expenseRepository.findByTransactionId(event.getTransactionId())

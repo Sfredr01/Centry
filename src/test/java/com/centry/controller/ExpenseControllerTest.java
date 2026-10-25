@@ -46,7 +46,7 @@ class ExpenseControllerTest {
 
     private static ExpenseEntity stored(ExpenseEvent e) {
         return new ExpenseEntity(7L, e.getTransactionId(), e.getMerchant(), e.getAmount(), e.getCategory(),
-                e.getTimestamp());
+                e.getTimestamp(), null, null);
     }
 
     @Test
@@ -82,7 +82,7 @@ class ExpenseControllerTest {
     @Test
     void replayedExpenseIs200WithLocation() throws Exception {
         ExpenseEntity existing = new ExpenseEntity(7L, "tx-1", "Coffee Shop", BigDecimal.ONE, "dining",
-                LocalDateTime.of(2026, 3, 4, 5, 6, 7));
+                LocalDateTime.of(2026, 3, 4, 5, 6, 7), null, null);
         when(expenseService.record(any())).thenReturn(new Recorded(existing, false));
 
         mockMvc.perform(post("/api/v1/expenses").with(csrf())
@@ -97,7 +97,7 @@ class ExpenseControllerTest {
     @Test
     void missingTransactionIdAndTimestampAreLeftToTheService() throws Exception {
         when(expenseService.record(any())).thenReturn(new Recorded(
-                new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now()), true));
+                new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now(), null, null), true));
 
         mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)

@@ -172,7 +172,7 @@ class ExpenseApiTest {
     void getById200() throws Exception {
         expenseRepository.deleteAll();
         ExpenseEntity saved = expenseRepository.save(new ExpenseEntity(null, "tx-get", "Cafe",
-                new BigDecimal("4.50"), "misc", LocalDateTime.of(2026, 3, 4, 5, 6, 7)));
+                new BigDecimal("4.50"), "misc", LocalDateTime.of(2026, 3, 4, 5, 6, 7), null, null));
 
         mockMvc.perform(get("/api/v1/expenses/" + saved.id()))
                 .andExpect(status().isOk())
