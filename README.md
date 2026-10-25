@@ -17,7 +17,7 @@ Key features
 
 Prerequisites
 
-- Java 17 (or the JDK version configured in `build.gradle`)
+- Java 21 or newer (bytecode targets Java 21, see `build.gradle`)
 - Gradle wrapper (included) — `./gradlew`
 - Docker and Docker Compose (recommended for running Kafka locally)
 
@@ -140,7 +140,7 @@ scp build/libs/*.jar pi@raspberrypi:/home/pi/centry/centry.jar
 
 ```bash
 sudo apt update
-sudo apt install -y openjdk-17-jdk
+sudo apt install -y openjdk-21-jdk
 ```
 
 - Run manually for testing:

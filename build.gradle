@@ -7,10 +7,18 @@ plugins {
 group = 'com.centry'
 version = '0.0.1-SNAPSHOT'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(23)
-    }
+// Target the Java 21 LTS runtime image; builds on any installed JDK >= 21.
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+// One executable jar with a fixed name, so the Dockerfile COPY is unambiguous.
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'centry.jar'
 }
 
 repositories {

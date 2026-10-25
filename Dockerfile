@@ -1,5 +1,5 @@
 # Stage 1: Build the application with Gradle
-FROM eclipse-temurin:23-jdk-jammy AS builder
+FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
 # Copy gradle wrapper and build files first to leverage caching
@@ -12,7 +12,7 @@ COPY src src
 RUN ./gradlew bootJar -x test --no-daemon
 
 # Stage 2: Lean Runtime Image
-FROM eclipse-temurin:23-jre-jammy
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 # Install curl for healthchecks and utilities
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 RUN groupadd -r centry && useradd -r -g centry centry
 
 # Copy built artifact from builder stage
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder /app/build/libs/centry.jar app.jar
 RUN chown -R centry:centry /app
 
 USER centry
