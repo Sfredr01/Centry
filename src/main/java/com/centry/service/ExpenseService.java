@@ -1,6 +1,5 @@
 package com.centry.service;
 
-import com.centry.config.KafkaTopicConfig;
 import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.ExpenseEntity;
 import com.centry.entity.SubscriptionAlertEntity;
@@ -16,20 +15,19 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
-public class ExpenseConsumer {
+public class ExpenseService {
 
-    private static final Logger log = LoggerFactory.getLogger(ExpenseConsumer.class);
+    private static final Logger log = LoggerFactory.getLogger(ExpenseService.class);
 
     private final BudgetTrackingService budgetTrackingService;
     private final SubscriptionTrackingService subscriptionTrackingService;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ApplicationEventPublisher events;
     private final ExpenseRepository expenseRepository;
     private final BudgetAlertRepository budgetAlertRepository;
     private final SubscriptionAlertRepository subscriptionAlertRepository;
@@ -39,16 +37,16 @@ public class ExpenseConsumer {
     private final Counter subscriptionAlertsCounter;
     private final Timer expenseProcessingTimer;
 
-    public ExpenseConsumer(BudgetTrackingService budgetTrackingService,
+    public ExpenseService(BudgetTrackingService budgetTrackingService,
                            SubscriptionTrackingService subscriptionTrackingService,
-                           KafkaTemplate<String, Object> kafkaTemplate,
+                           ApplicationEventPublisher events,
                            ExpenseRepository expenseRepository,
                            BudgetAlertRepository budgetAlertRepository,
                            SubscriptionAlertRepository subscriptionAlertRepository,
                            MeterRegistry meterRegistry) {
         this.budgetTrackingService = budgetTrackingService;
         this.subscriptionTrackingService = subscriptionTrackingService;
-        this.kafkaTemplate = kafkaTemplate;
+        this.events = events;
         this.expenseRepository = expenseRepository;
         this.budgetAlertRepository = budgetAlertRepository;
         this.subscriptionAlertRepository = subscriptionAlertRepository;
@@ -59,11 +57,11 @@ public class ExpenseConsumer {
         this.expenseProcessingTimer = meterRegistry.timer("centry.expense.processing.duration");
     }
 
-    @KafkaListener(topics = "raw-expenses", groupId = "centry-group")
-    public void consumeRawExpense(ExpenseEvent event) {
+    /** Single use case: persist, budget check, subscription check, alerts, metrics. */
+    public void record(ExpenseEvent event) {
         expenseProcessingTimer.record(() -> {
             expensesConsumedCounter.increment();
-            log.info("Successfully received event from Kafka [raw-expenses]: merchant='{}', amount=${}, category='{}'",
+            log.info("Recording expense: merchant='{}', amount=${}, category='{}'",
                     event.getMerchant(), event.getAmount(), event.getCategory());
 
             // 1. Persist Expense Entity
@@ -110,8 +108,7 @@ public class ExpenseConsumer {
                         .timestamp(LocalDateTime.now())
                         .build());
 
-                // Publish to budget-alerts topic
-                kafkaTemplate.send(KafkaTopicConfig.BUDGET_ALERTS_TOPIC, status.getCategory(), alertEvent);
+                events.publishEvent(alertEvent);
             }
 
             // 3. Process subscription and anomaly detection
@@ -132,7 +129,7 @@ public class ExpenseConsumer {
                         .timestamp(subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now())
                         .build());
 
-                kafkaTemplate.send(KafkaTopicConfig.SUBSCRIPTION_ALERTS_TOPIC, subscriptionAlert.getMerchant(), subscriptionAlert);
+                events.publishEvent(subscriptionAlert);
             }
         });
     }
