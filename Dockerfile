@@ -25,6 +25,10 @@ RUN groupadd -r centry && useradd -r -g centry centry
 COPY --from=builder /app/build/libs/centry.jar app.jar
 RUN chown -R centry:centry /app
 
+# SQLite lives in /data, which docker-compose.prod.yml mounts from the host so it survives container recreation.
+ENV CENTRY_DATA_DIR=/data
+RUN mkdir -p /data && chown centry:centry /data
+
 USER centry
 
 EXPOSE 8080
