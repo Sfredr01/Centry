@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -18,6 +19,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SubscriptionTrackingService {
 
     private static final Logger log = LoggerFactory.getLogger(SubscriptionTrackingService.class);
+
+    private final Clock clock;
+
+    public SubscriptionTrackingService(Clock clock) {
+        this.clock = clock;
+    }
 
     // Merchant name (normalized) -> List of transaction records
     private final Map<String, List<TransactionRecord>> merchantHistory = new ConcurrentHashMap<>();
@@ -34,7 +41,7 @@ public class SubscriptionTrackingService {
         }
 
         String normalizedMerchant = merchant.trim().toLowerCase();
-        LocalDateTime eventTime = timestamp != null ? timestamp : LocalDateTime.now();
+        LocalDateTime eventTime = timestamp != null ? timestamp : LocalDateTime.now(clock);
 
         List<TransactionRecord> history = merchantHistory.computeIfAbsent(normalizedMerchant, k -> Collections.synchronizedList(new ArrayList<>()));
 

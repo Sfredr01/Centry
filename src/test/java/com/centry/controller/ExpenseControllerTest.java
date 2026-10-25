@@ -1,6 +1,8 @@
 package com.centry.controller;
 
+import com.centry.config.ClockConfig;
 import com.centry.dto.ExpenseEvent;
+import org.springframework.context.annotation.Import;
 import com.centry.service.ExpenseService;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ExpenseController.class)
+@Import(ClockConfig.class)
 class ExpenseControllerTest {
 
     private static final String ACCEPTED = "Expense recorded.";

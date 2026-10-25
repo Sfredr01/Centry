@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class ExpenseController {
 
     private final ExpenseService expenseService;
+    private final Clock clock;
 
     @PostMapping
     public ResponseEntity<String> createExpense(@RequestBody ExpenseEvent expense) {
@@ -23,7 +25,7 @@ public class ExpenseController {
             expense.setTransactionId(UUID.randomUUID().toString());
         }
         if (expense.getTimestamp() == null) {
-            expense.setTimestamp(LocalDateTime.now());
+            expense.setTimestamp(LocalDateTime.now(clock));
         }
 
         expenseService.record(expense);

@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -32,6 +33,8 @@ public class ExpenseService {
     private final BudgetAlertRepository budgetAlertRepository;
     private final SubscriptionAlertRepository subscriptionAlertRepository;
 
+    private final Clock clock;
+
     private final Counter expensesConsumedCounter;
     private final Counter budgetAlertsCounter;
     private final Counter subscriptionAlertsCounter;
@@ -43,13 +46,15 @@ public class ExpenseService {
                            ExpenseRepository expenseRepository,
                            BudgetAlertRepository budgetAlertRepository,
                            SubscriptionAlertRepository subscriptionAlertRepository,
-                           MeterRegistry meterRegistry) {
+                           MeterRegistry meterRegistry,
+                           Clock clock) {
         this.budgetTrackingService = budgetTrackingService;
         this.subscriptionTrackingService = subscriptionTrackingService;
         this.events = events;
         this.expenseRepository = expenseRepository;
         this.budgetAlertRepository = budgetAlertRepository;
         this.subscriptionAlertRepository = subscriptionAlertRepository;
+        this.clock = clock;
 
         this.expensesConsumedCounter = meterRegistry.counter("centry.expenses.consumed");
         this.budgetAlertsCounter = meterRegistry.counter("centry.budget.alerts.emitted");
@@ -65,12 +70,12 @@ public class ExpenseService {
                     event.getMerchant(), event.getAmount(), event.getCategory());
 
             // 1. Persist Expense Entity
-            LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now();
+            LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now(clock);
             expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(), event.getMerchant(),
                     event.getAmount(), event.getCategory(), txTime));
 
             // 2. Update in-memory budget state
-            BudgetStatus status = budgetTrackingService.recordExpense(event.getCategory(), event.getAmount());
+            BudgetStatus status = budgetTrackingService.recordExpense(event.getCategory(), event.getAmount(), txTime);
 
             if (status != null && status.getStatus() != BudgetStatus.Status.OK) {
                 budgetAlertsCounter.increment();
@@ -94,7 +99,7 @@ public class ExpenseService {
                 // Persist budget alert
                 budgetAlertRepository.save(new BudgetAlertEntity(null, status.getCategory(),
                         status.getCurrentSpend(), status.getMonthlyLimit(), status.getWarningAmount(),
-                        status.getStatus(), msg, LocalDateTime.now()));
+                        status.getStatus(), msg, LocalDateTime.now(clock)));
 
                 events.publishEvent(alertEvent);
             }
@@ -111,7 +116,7 @@ public class ExpenseService {
                 subscriptionAlertRepository.save(new SubscriptionAlertEntity(null, subscriptionAlert.getMerchant(),
                         subscriptionAlert.getPreviousAmount(), subscriptionAlert.getCurrentAmount(),
                         subscriptionAlert.getAnomalyType(), subscriptionAlert.getMessage(),
-                        subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now()));
+                        subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now(clock)));
 
                 events.publishEvent(subscriptionAlert);
             }

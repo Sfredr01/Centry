@@ -20,7 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,6 +37,8 @@ import static org.mockito.Mockito.when;
 class ExpenseServiceTest {
 
     private static final LocalDateTime TX_TIME = LocalDateTime.of(2025, 3, 4, 5, 6, 7);
+    private static final LocalDateTime CLOCK_NOW = LocalDateTime.of(2025, 11, 15, 10, 0, 0);
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2025-11-15T10:00:00Z"), ZoneOffset.UTC);
 
     @Mock private BudgetTrackingService budgetTrackingService;
     @Mock private SubscriptionTrackingService subscriptionTrackingService;
@@ -49,7 +54,7 @@ class ExpenseServiceTest {
     void setUp() {
         registry = new SimpleMeterRegistry();
         service = new ExpenseService(budgetTrackingService, subscriptionTrackingService, events,
-                expenseRepository, budgetAlertRepository, subscriptionAlertRepository, registry);
+                expenseRepository, budgetAlertRepository, subscriptionAlertRepository, registry, CLOCK);
     }
 
     private ExpenseEvent event(LocalDateTime ts) {
@@ -92,22 +97,27 @@ class ExpenseServiceTest {
     }
 
     @Test
-    void nullTimestampDefaultsToNowForEntityAndSubscriptionCheck() {
-        LocalDateTime before = LocalDateTime.now();
-
+    void nullTimestampDefaultsFromClock() {
         service.record(event(null));
 
-        LocalDateTime after = LocalDateTime.now();
         ExpenseEntity e = savedExpense();
-        assertThat(e.timestamp()).isBetween(before, after);
-        ArgumentCaptor<LocalDateTime> passed = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(subscriptionTrackingService).processAndCheckSubscription(eq("Netflix"), any(), passed.capture());
-        assertThat(passed.getValue()).isEqualTo(e.timestamp());
+        assertThat(e.timestamp()).isEqualTo(CLOCK_NOW);
+        verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), CLOCK_NOW);
+        verify(budgetTrackingService).recordExpense("Entertainment", new BigDecimal("15.99"), CLOCK_NOW);
+    }
+
+    @Test
+    void monthDerivedFromOccurredOnNotClock() {
+        LocalDateTime october = LocalDateTime.of(2025, 10, 20, 12, 0);
+
+        service.record(event(october));
+
+        verify(budgetTrackingService).recordExpense("Entertainment", new BigDecimal("15.99"), october);
     }
 
     @Test
     void okBudgetStatusEmitsNoBudgetAlert() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99")))
+        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
                 .thenReturn(status(BudgetStatus.Status.OK));
 
         service.record(event(TX_TIME));
@@ -118,10 +128,8 @@ class ExpenseServiceTest {
 
     @Test
     void warningExceededPersistsAndPublishesAlertMentioningWarningThreshold() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99")))
+        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
                 .thenReturn(status(BudgetStatus.Status.WARNING_EXCEEDED));
-        LocalDateTime before = LocalDateTime.now();
-
         service.record(event(TX_TIME));
 
         String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds warning threshold of $80.00";
@@ -134,7 +142,7 @@ class ExpenseServiceTest {
         assertThat(a.warningAmount()).isEqualByComparingTo("80.00");
         assertThat(a.status()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
         assertThat(a.message()).isEqualTo(expectedMsg);
-        assertThat(a.timestamp()).isBetween(before, LocalDateTime.now());
+        assertThat(a.timestamp()).isEqualTo(CLOCK_NOW);
 
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
         verify(events).publishEvent(payload.capture());
@@ -148,7 +156,7 @@ class ExpenseServiceTest {
 
     @Test
     void limitExceededAlertMentionsMonthlyLimit() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99")))
+        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
                 .thenReturn(status(BudgetStatus.Status.LIMIT_EXCEEDED));
 
         service.record(event(TX_TIME));
@@ -198,13 +206,11 @@ class ExpenseServiceTest {
         SubscriptionAlertEvent alert = subAlert(null);
         when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
                 .thenReturn(alert);
-        LocalDateTime before = LocalDateTime.now();
-
         service.record(event(TX_TIME));
 
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().timestamp()).isBetween(before, LocalDateTime.now());
+        assertThat(saved.getValue().timestamp()).isEqualTo(CLOCK_NOW);
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }
