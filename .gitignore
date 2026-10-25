@@ -6,10 +6,6 @@ build/
 bin/
 out/
 
-# Gradle wrapper downloads
-!gradle/wrapper/gradle-wrapper.jar
-!**/gradle/wrapper/gradle-wrapper.jar
-
 # Cache files
 .gradle-test-internal/
 
@@ -25,6 +21,9 @@ out/
 *.zip
 *.tar.gz
 *.rar
+
+# Gradle wrapper jar must be committed (must follow *.jar to take effect)
+!gradle/wrapper/gradle-wrapper.jar
 
 # ==========================================
 # IDE & Editor Specific Files
