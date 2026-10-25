@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,6 +114,19 @@ class ExpenseServiceTest {
 
         assertThat(result.expense()).isSameAs(saved);
         assertThat(result.created()).isTrue();
+    }
+
+    // Kafka producers may omit the id; HTTP used to be the only path that assigned one.
+    @Test
+    void missingTransactionIdIsAssigned() {
+        ExpenseEvent noId = event(TX_TIME);
+        noId.setTransactionId(null);
+
+        service.record(noId);
+
+        ArgumentCaptor<ExpenseEntity> c = ArgumentCaptor.forClass(ExpenseEntity.class);
+        verify(expenseRepository).save(c.capture());
+        assertThat(UUID.fromString(c.getValue().transactionId())).isNotNull();
     }
 
     private ExpenseEntity existing(LocalDateTime ts) {

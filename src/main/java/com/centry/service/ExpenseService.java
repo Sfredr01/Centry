@@ -24,6 +24,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class ExpenseService {
@@ -84,6 +85,10 @@ public class ExpenseService {
     public Recorded record(ExpenseEvent event) {
         return expenseProcessingTimer.record(() -> {
             LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now(clock);
+            // Every entry point (HTTP, Kafka) may omit the id; without one the expense cannot be replayed safely.
+            if (event.getTransactionId() == null) {
+                event.setTransactionId(UUID.randomUUID().toString());
+            }
 
             Optional<ExpenseEntity> existing = expenseRepository.findByTransactionId(event.getTransactionId());
             if (existing.isPresent()) {

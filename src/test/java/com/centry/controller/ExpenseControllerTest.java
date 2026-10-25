@@ -16,7 +16,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -91,9 +90,9 @@ class ExpenseControllerTest {
                 .andExpect(jsonPath("$.id").value(7));
     }
 
-    // The service defaults a missing timestamp from the Clock, so a replay without one stays comparable.
+    // The service assigns a missing id and defaults a missing timestamp for every entry point (HTTP and Kafka).
     @Test
-    void missingTransactionIdIsGeneratedAndTimestampLeftToTheService() throws Exception {
+    void missingTransactionIdAndTimestampAreLeftToTheService() throws Exception {
         when(expenseService.record(any())).thenReturn(new Recorded(
                 new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now()), true));
 
@@ -105,8 +104,7 @@ class ExpenseControllerTest {
         ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
         verify(expenseService).record(captor.capture());
         ExpenseEvent sent = captor.getValue();
-        assertThat(sent.getTransactionId()).isNotNull();
-        assertThat(UUID.fromString(sent.getTransactionId()).toString()).isEqualTo(sent.getTransactionId());
+        assertThat(sent.getTransactionId()).isNull();
         assertThat(sent.getTimestamp()).isNull();
         assertThat(sent.getMerchant()).isEqualTo("Coffee Shop");
     }

@@ -101,6 +101,15 @@ class KafkaProfileIngestTest {
     }
 
     @Test
+    void messageWithoutTransactionIdIsRecorded() {
+        String merchant = "NoId-" + UUID.randomUUID();
+        send(merchant, "{\"merchant\":\"" + merchant + "\",\"amount\":2.25,\"category\":\"misc\"}");
+
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() ->
+                assertThat(expenseRepository.findAll()).anyMatch(e -> e.merchant().equals(merchant)));
+    }
+
+    @Test
     void budgetAlertIsRepublished() {
         try (Consumer<String, String> alerts = consumerOf("budget-alerts")) {
             send("Store", "{\"transactionId\":\"tx-alert\",\"merchant\":\"Store\","

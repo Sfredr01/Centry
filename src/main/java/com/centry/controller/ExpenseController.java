@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/expenses")
@@ -25,11 +24,7 @@ public class ExpenseController {
 
     @PostMapping
     public ResponseEntity<ExpenseEntity> createExpense(@Valid @RequestBody ExpenseEvent expense) {
-        // The service defaults a missing timestamp from the Clock.
-        if (expense.getTransactionId() == null) {
-            expense.setTransactionId(UUID.randomUUID().toString());
-        }
-
+        // The service assigns a missing transaction id and defaults a missing timestamp from the Clock.
         Recorded recorded = expenseService.record(expense);
         URI location = location(recorded.expense());
         // A replay of an already stored expense is not a new resource: 200 instead of 201.
