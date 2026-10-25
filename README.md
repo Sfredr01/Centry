@@ -62,8 +62,8 @@ CENTRY_ADMIN_PASSWORD='a long passphrase' ./gradlew bootRun
 - **Scripts and phone shortcuts** use HTTP Basic on `/api/**`: `curl -u admin:... http://localhost:8080/api/v1/budgets`.
   Unauthenticated API calls get a plain `401` with no `WWW-Authenticate` header, so browsers never pop up a
   Basic prompt or cache credentials.
-- **Roles:** `ADMIN` can do everything. `MEMBER` can record expenses and read budgets and the dashboard, but cannot
-  `PUT`/`DELETE` budgets or manage users.
+- **Roles:** `ADMIN` can do everything. `MEMBER` can record expenses and read budgets and the dashboard page, but
+  cannot change budgets (API or the Budgets page) or manage users.
 - **Users** (admin only): `POST /api/v1/users` with `{"username","displayName","password"?,"role"}` and
   `GET /api/v1/users`. Leave out `password` for a household member who cannot log in (for example a child).
   Passwords are at least 12 characters. Changing passwords and deleting users are not available yet.
@@ -71,6 +71,21 @@ CENTRY_ADMIN_PASSWORD='a long passphrase' ./gradlew bootRun
   by default. If you put the app behind HTTPS, set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`. Tailscale or a Caddy
   reverse proxy is the easiest way to get HTTPS at home.
 - Only `/actuator/health` is exposed, and it shows just the status (the Docker healthcheck uses it).
+
+## Web UI
+
+A phone-first UI is served by the same app (server-rendered Thymeleaf, [htmx](https://htmx.org) and
+[Pico.css](https://picocss.com), both vendored under `src/main/resources/static/vendor/`; nothing is loaded from a
+CDN and there is no Node toolchain). Sign in on `/login`, then:
+
+- `/add` (the installed app's start page): amount, category, optional merchant and date. Saving twice (a double
+  tap) stores one expense. Without JavaScript the form still works.
+- `/`: this month's budget bars and the 20 most recent expenses.
+- `/budgets`: budgets with their status. Admins can add, edit and delete them; members see a read-only table.
+
+Add it to the home screen to get the standalone app (`/manifest.webmanifest`). There is no service worker, so it
+needs a connection. The old `/api/v1/dashboard/*` JSON endpoints are gone; use `GET /api/v1/budgets` for budget
+status.
 
 ## Budgets
 

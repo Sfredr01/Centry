@@ -46,24 +46,32 @@ class ExpenseRepositoryTest {
                 .containsExactly(new BigDecimal("0.10"), new BigDecimal("0.20"));
         assertThat(rows.get(0)).isEqualTo(a);
         assertThat(rows.get(0).timestamp()).isEqualTo(TS);
-        assertThat(repository.sumAmountByCategory().get("dining")).isEqualTo(new BigDecimal("0.30"));
     }
 
     @Test
-    void sumAmountByCategoryGroupsAndSums() {
-        repository.save(expense("dining", "10.50"));
-        repository.save(expense("dining", "4.50"));
-        repository.save(expense("travel", "200.00"));
+    void findRecentOrdersByDateThenInsertionAndHonoursLimit() {
+        ExpenseEntity older = repository.save(at("a", TS));
+        ExpenseEntity tieFirst = repository.save(at("b", TS.plusDays(2)));
+        ExpenseEntity tieLast = repository.save(at("c", TS.plusDays(2)));
+        repository.save(at("d", TS.minusDays(5)));
 
-        assertThat(repository.sumAmountByCategory())
-                .hasSize(2)
-                .containsEntry("dining", new BigDecimal("15.00"))
-                .containsEntry("travel", new BigDecimal("200.00"));
+        assertThat(repository.findRecent(3)).containsExactly(tieLast, tieFirst, older);
+        assertThat(repository.findRecent(10)).hasSize(4);
     }
 
     @Test
-    void sumAmountByCategoryIsEmptyWithNoExpenses() {
-        assertThat(repository.sumAmountByCategory()).isEmpty();
+    void recentCategoriesAreDistinctByKeyNewestFirstAndKeepLatestSpelling() {
+        repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.00"), "Dining", TS));
+        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("1.00"), "dining ", TS));
+        repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("1.00"), "Fuel", TS));
+        repository.save(new ExpenseEntity(null, "4", "m", new BigDecimal("1.00"), "Gifts", TS));
+
+        assertThat(repository.recentCategories(10)).containsExactly("Gifts", "Fuel", "dining ");
+        assertThat(repository.recentCategories(2)).containsExactly("Gifts", "Fuel");
+    }
+
+    private ExpenseEntity at(String id, LocalDateTime when) {
+        return new ExpenseEntity(null, id, "m", new BigDecimal("1.00"), "dining", when);
     }
 
     @Test

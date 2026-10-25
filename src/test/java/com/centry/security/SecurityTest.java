@@ -110,7 +110,6 @@ class SecurityTest {
         mockMvc.perform(post("/api/v1/expenses").with(mom()).contentType(MediaType.APPLICATION_JSON)
                 .content(EXPENSE)).andExpect(status().isCreated());
         mockMvc.perform(get("/api/v1/budgets").with(mom())).andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/dashboard/summary").with(mom())).andExpect(status().isOk());
     }
 
     @Test

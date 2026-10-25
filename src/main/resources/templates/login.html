@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: page('Sign in', ~{::main})}">
+<body>
+<main class="container">
+    <h1>Centry</h1>
+    <p role="alert" th:if="${param.error}">Wrong username or password.</p>
+    <p role="status" th:if="${param.logout}">You have been signed out.</p>
+    <form method="post" th:action="@{/login}">
+        <label>Username
+            <input name="username" autocomplete="username" autocapitalize="none" required autofocus>
+        </label>
+        <label>Password
+            <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+            <input name="remember-me" type="checkbox">
+            Remember me for 30 days
+        </label>
+        <button type="submit">Sign in</button>
+    </form>
+</main>
+</body>
+</html>

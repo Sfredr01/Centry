@@ -7,12 +7,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -55,6 +52,21 @@ public class ExpenseRepository {
         return jdbc.sql(SELECT + " ORDER BY id").query(ExpenseRepository::map).list();
     }
 
+    /** The latest expenses, newest date first; ties (same timestamp) go to the one recorded last. */
+    public List<ExpenseEntity> findRecent(int limit) {
+        return jdbc.sql(SELECT + " ORDER BY occurred_at DESC, id DESC LIMIT ?").param(limit)
+                .query(ExpenseRepository::map).list();
+    }
+
+    /** Categories already used, one per normalized key (see {@code Keys.of}) in the latest spelling, newest first. */
+    public List<String> recentCategories(int limit) {
+        return jdbc.sql("""
+                        SELECT category FROM expense
+                         WHERE id IN (SELECT MAX(id) FROM expense GROUP BY lower(trim(category)))
+                         ORDER BY id DESC LIMIT ?""")
+                .param(limit).query(String.class).list();
+    }
+
     public Optional<ExpenseEntity> findById(long id) {
         return jdbc.sql(SELECT + " WHERE id = ?").param(id).query(ExpenseRepository::map).optional();
     }
@@ -85,16 +97,6 @@ public class ExpenseRepository {
 
     public long count() {
         return jdbc.sql("SELECT COUNT(*) FROM expense").query(Long.class).single();
-    }
-
-    /** Total per category; exact because the sum is taken over integer cents. */
-    public Map<String, BigDecimal> sumAmountByCategory() {
-        Map<String, BigDecimal> totals = new LinkedHashMap<>();
-        jdbc.sql("SELECT category, SUM(amount_cents) AS total FROM expense GROUP BY category ORDER BY category")
-                .query(rs -> {
-                    totals.put(rs.getString("category"), Cents.money(rs, "total"));
-                });
-        return totals;
     }
 
     public void deleteAll() {

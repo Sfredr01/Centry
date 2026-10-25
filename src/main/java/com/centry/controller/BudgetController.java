@@ -28,7 +28,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BudgetController {
 
-    static final int DEFAULT_WARN_PERCENT = 80;
+    public static final int DEFAULT_WARN_PERCENT = 80;
 
     private final BudgetRepository budgetRepository;
     private final BudgetStatusQuery statusQuery;

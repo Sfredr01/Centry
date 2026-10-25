@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl;
@@ -29,7 +28,7 @@ import java.util.UUID;
 /**
  * Two kinds of clients share one filter chain:
  * <ul>
- *   <li>browsers: form login (Spring's generated page until M8), session cookie, persistent remember-me;</li>
+ *   <li>browsers: form login on our own {@code /login} page, session cookie, persistent remember-me;</li>
  *   <li>API clients (curl, phone shortcuts): HTTP Basic on {@code /api/**}.</li>
  * </ul>
  */
@@ -99,14 +98,20 @@ public class SecurityConfig {
             http
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                            // Everything the login page needs to render, plus the PWA manifest and icons.
+                            .requestMatchers("/manifest.webmanifest", "/vendor/**", "/css/**", "/icons/**",
+                                    "/favicon.ico").permitAll()
+                            // The browser UI's budget forms; the matching API routes below are the same rule.
+                            .requestMatchers(HttpMethod.POST, "/budgets", "/budgets/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.PUT, "/api/v1/budgets/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.DELETE, "/api/v1/budgets/**").hasRole("ADMIN")
                             .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
                             .requestMatchers(API).hasAnyRole("ADMIN", "MEMBER")
                             .anyRequest().authenticated())
                     .httpBasic(basic -> basic.authenticationEntryPoint(unauthorized))
-                    .formLogin(Customizer.withDefaults())
-                    .logout(Customizer.withDefaults())
+                    .formLogin(form -> form.loginPage("/login").permitAll())
+                    // permitAll() lets the anonymous browser reach the post-logout /login?logout page.
+                    .logout(logout -> logout.permitAll())
                     .rememberMe(remember -> remember.rememberMeServices(rememberMeServices))
                     // Anonymous API calls get the bare 401; every other path keeps form login's redirect to /login.
                     .exceptionHandling(handling -> handling.defaultAuthenticationEntryPointFor(unauthorized, api))

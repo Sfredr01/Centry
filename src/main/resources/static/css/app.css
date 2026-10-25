@@ -1,0 +1,27 @@
+/* Pico does the styling; this file only holds what Pico has no class for. */
+.signed-in { display: flex; gap: .75rem; align-items: center; margin: 0; }
+.signed-in button { width: auto; margin: 0; padding: .25rem .75rem; white-space: nowrap; }
+
+/* Budget bars: Pico draws progress with --pico-progress-color (its primary), so recolor by budget level. */
+progress[data-level="WARNING_EXCEEDED"] { --pico-progress-color: #e0a100; }
+progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: #d64545; }
+
+/* Keep tables inside a phone screen: tighter cells, dates on one line. */
+table { font-size: .9rem; }
+th, td { padding: .5rem .4rem; }
+td:first-child { white-space: nowrap; }
+
+/* Budget cards: category and status on one line; Pico's .grid keeps the two inputs side by side
+   (it collapses below its breakpoint, so force two columns: the inputs are short numbers). */
+.budget header { display: flex; justify-content: space-between; gap: .5rem; }
+.budget .grid { grid-template-columns: 1fr 1fr; }
+.budget form { margin-bottom: .5rem; }
+[data-level="WARNING_EXCEEDED"]:not(progress) { color: #e0a100; }
+[data-level="LIMIT_EXCEEDED"]:not(progress) { color: #d64545; }
+
+/* Nav must fit 375px: let items wrap instead of pushing the page sideways. */
+nav { flex-wrap: wrap; }
+nav ul { flex-wrap: wrap; }
+
+[role="alert"] { color: var(--pico-del-color); }
+.muted { color: var(--pico-muted-color); }
