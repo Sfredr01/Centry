@@ -3,6 +3,7 @@ package com.centry.repository;
 import com.centry.entity.ExpenseEntity;
 import com.centry.model.BudgetLevel;
 import com.centry.model.BudgetStatus;
+import com.centry.model.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +88,19 @@ class BudgetStatusQueryTest {
         spend("CAFÉ", "2.00", at);
 
         assertThat(status("café", MARCH).spent()).isEqualByComparingTo("1.00");
+    }
+
+    // Production keys every name with Keys.of; it must agree with SQL's lower(trim()) or spend silently goes missing.
+    @Test
+    void keysOfMatchesSqlForNonAsciiAndTabbedNames() {
+        LocalDateTime at = LocalDateTime.of(2026, 3, 10, 12, 0);
+        budgets.upsert(Keys.of("Épicerie"), new BigDecimal("1000.00"), 80);
+        budgets.upsert(Keys.of("\tfood"), new BigDecimal("1000.00"), 80);
+        spend("Épicerie", "3.00", at);
+        spend("\tfood", "4.00", at);
+
+        assertThat(status(Keys.of("Épicerie"), MARCH).spent()).isEqualByComparingTo("3.00");
+        assertThat(status(Keys.of("\tfood"), MARCH).spent()).isEqualByComparingTo("4.00");
     }
 
     @Test

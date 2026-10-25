@@ -6,9 +6,8 @@ CREATE TABLE budget (
 ) STRICT;
 
 -- Spend per category and month is a query over expense. These expression indexes serve lookups by the
--- normalized key. SQLite's lower() only folds ASCII (Java's toLowerCase also folds other scripts), and its
--- trim() only strips spaces (Java's trim() strips all chars <= U+0020): keys that differ only in
--- non-ASCII case or in tabs/newlines do not match.
+-- normalized key. Keys.of mirrors SQLite exactly: lower() folds only ASCII and trim() strips only spaces,
+-- so "Café" and "CAFÉ" are different keys on both sides (consistent, never a silent mismatch).
 CREATE INDEX idx_expense_category_key_occurred_at ON expense (lower(trim(category)), occurred_at);
 
 -- Previous charge of a merchant for the subscription check: latest id per normalized merchant.
