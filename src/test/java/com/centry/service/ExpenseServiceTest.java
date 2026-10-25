@@ -361,4 +361,66 @@ class ExpenseServiceTest {
         assertThat(service.record(event(TX_TIME), 5L).created()).isFalse();
         assertThat(service.record(same, 5L).created()).isFalse();
     }
+
+    private static final LocalDateTime EDITED_TIME = LocalDateTime.of(2025, 4, 5, 6, 7, 8);
+
+    private ExpenseEntity original() {
+        return new ExpenseEntity(9L, "tx-1", "Netflix", new BigDecimal("15.99"), "Entertainment", TX_TIME, 7L, 3L);
+    }
+
+    private ExpenseEvent edited(Long spentBy) {
+        return ExpenseEvent.builder().merchant("Hulu").amount(new BigDecimal("20.00")).category("Food")
+                .timestamp(EDITED_TIME).spentBy(spentBy).build();
+    }
+
+    @Test
+    void updateRewritesEditableFieldsAndKeepsIdentityAndCreator() {
+        when(users.existsById(8L)).thenReturn(true);
+
+        ExpenseEntity result = service.update(original(), edited(8L));
+
+        ArgumentCaptor<ExpenseEntity> c = ArgumentCaptor.forClass(ExpenseEntity.class);
+        verify(expenseRepository).update(c.capture());
+        assertThat(c.getValue()).isEqualTo(new ExpenseEntity(9L, "tx-1", "Hulu", new BigDecimal("20.00"), "Food",
+                EDITED_TIME, 8L, 3L));
+        assertThat(result).isEqualTo(c.getValue());
+        // An edit is not a new expense.
+        assertThat(count("centry.expenses.consumed")).isZero();
+        verify(expenseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateWithoutSpenderLeavesItUnattributed() {
+        service.update(original(), edited(null));
+
+        ArgumentCaptor<ExpenseEntity> c = ArgumentCaptor.forClass(ExpenseEntity.class);
+        verify(expenseRepository).update(c.capture());
+        assertThat(c.getValue().spentBy()).isNull();
+    }
+
+    @Test
+    void updateWithUnknownSpenderIsRejected() {
+        assertThatThrownBy(() -> service.update(original(), edited(99L))).isInstanceOf(UnknownSpenderException.class);
+        verify(expenseRepository, never()).update(any());
+        verifyNoInteractions(budgetAlertPolicy);
+    }
+
+    @Test
+    void updateRunsTheBudgetPolicyForTheNewCategoryAndMonthAndPublishesItsAlert() {
+        BudgetAlertEvent alert = alertEvent(BudgetLevel.WARNING_EXCEEDED);
+        when(budgetAlertPolicy.evaluate("Food", EDITED_TIME)).thenReturn(Optional.of(alert));
+
+        service.update(original(), edited(null));
+
+        verify(events).publishEvent((Object) alert);
+        assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
+    }
+
+    @Test
+    void updateWithNoNewAlertPublishesNothing() {
+        service.update(original(), edited(null));
+
+        verify(budgetAlertPolicy).evaluate("Food", EDITED_TIME);
+        verifyNoInteractions(events);
+    }
 }
