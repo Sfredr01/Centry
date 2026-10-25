@@ -91,13 +91,13 @@ class BudgetsPageTest {
     void adminSeesEditFormsAndCanUpsert() throws Exception {
         Document page = Html.of(mockMvc.perform(get("/budgets").with(admin())).andExpect(status().isOk()));
 
-        var row = page.selectFirst("#budgets tbody tr");
-        assertThat(row.text()).contains("food").contains("85.00");
-        // The row's inputs belong to the row's own save form (HTML form="id"), so a table cell layout works.
-        String formId = row.selectFirst("form[method=post][action=/budgets/food]").id();
-        assertThat(formId).isNotBlank();
-        assertThat(row.select("input[form=" + formId + "][name=monthlyLimit]").attr("value")).isEqualTo("100.00");
-        assertThat(row.select("input[form=" + formId + "][name=warnPercent]").attr("value")).isEqualTo("80");
+        // One card per budget, not a table: a five-column table with inputs cannot fit a phone screen.
+        assertThat(page.select("#budgets table")).isEmpty();
+        var card = page.selectFirst("#budgets article");
+        assertThat(card.text()).contains("food").contains("85.00");
+        var save = card.selectFirst("form[method=post][action=/budgets/food]");
+        assertThat(save.select("input[name=monthlyLimit]").attr("value")).isEqualTo("100.00");
+        assertThat(save.select("input[name=warnPercent]").attr("value")).isEqualTo("80");
         assertThat(page.select("form[method=post][action=/budgets/food/delete]")).hasSize(1);
         assertThat(page.select("form[method=post][action=/budgets] input[name=category]")).hasSize(1);
         assertThat(page.select("form[action=/budgets/food] input[name=_csrf]")).hasSize(1);
@@ -128,7 +128,8 @@ class BudgetsPageTest {
     void memberSeesReadOnlyTable() throws Exception {
         Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
 
-        assertThat(page.selectFirst("#budgets tbody tr").text()).contains("food").contains("85.00")
+        assertThat(page.select("#budgets table")).isEmpty();
+        assertThat(page.selectFirst("#budgets article").text()).contains("food").contains("85.00")
                 .contains("100.00").contains("80");
         assertThat(page.select("#budgets input")).isEmpty();
         // Only the logout form is left.
@@ -161,7 +162,7 @@ class BudgetsPageTest {
                 .andExpect(status().isUnprocessableContent()));
 
         assertThat(page.select("[role=alert]").text()).isNotBlank();
-        assertThat(page.select("#budgets tbody tr")).hasSize(1);
+        assertThat(page.select("#budgets article")).hasSize(1);
         assertThat(food().monthlyLimit()).isEqualByComparingTo("100.00");
         assertThat(food().warnPercent()).isEqualTo(80);
     }

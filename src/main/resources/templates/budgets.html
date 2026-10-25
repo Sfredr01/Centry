@@ -7,45 +7,38 @@
     <p role="alert" th:if="${error}" th:text="${error}">Something is wrong.</p>
 
     <p th:if="${budgets.empty}">No budgets yet.</p>
-    <div class="overflow-auto" th:unless="${budgets.empty}">
-        <table id="budgets">
-            <thead>
-            <tr>
-                <th>Category</th><th>Spent</th><th>Limit</th><th>Warn %</th><th>Status</th>
-                <th sec:authorize="hasRole('ADMIN')"></th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="b, row : ${budgets}">
-                <td th:text="${b.category}">food</td>
-                <td th:text="${b.spent}">85.00</td>
-                <td>
-                    <span sec:authorize="!hasRole('ADMIN')" th:text="${b.monthlyLimit}">100.00</span>
-                    <input sec:authorize="hasRole('ADMIN')" name="monthlyLimit" inputmode="decimal" required
-                           th:form="|edit-${row.index}|" th:value="${b.monthlyLimit}" aria-label="Monthly limit">
-                </td>
-                <td>
-                    <span sec:authorize="!hasRole('ADMIN')" th:text="${b.warnPercent}">80</span>
-                    <input sec:authorize="hasRole('ADMIN')" name="warnPercent" inputmode="numeric"
-                           th:form="|edit-${row.index}|" th:value="${b.warnPercent}" aria-label="Warn at percent">
-                </td>
-                <td th:switch="${b.level.name()}">
+    <!-- One card per budget: a table with inline inputs does not fit a phone screen. -->
+    <section id="budgets" th:unless="${budgets.empty}">
+        <article th:each="b : ${budgets}" class="budget">
+            <header>
+                <strong th:text="${b.category}">food</strong>
+                <span th:switch="${b.level.name()}">
                     <span th:case="'OK'">OK</span>
                     <span th:case="'WARNING_EXCEEDED'" data-level="WARNING_EXCEEDED">Warning</span>
                     <span th:case="*" data-level="LIMIT_EXCEEDED">Over limit</span>
-                </td>
-                <td sec:authorize="hasRole('ADMIN')">
-                    <form method="post" th:id="|edit-${row.index}|" th:action="@{/budgets/{c}(c=${b.category})}">
-                        <button type="submit">Save</button>
-                    </form>
-                    <form method="post" th:action="@{/budgets/{c}/delete(c=${b.category})}">
-                        <button type="submit" class="outline secondary">Delete</button>
-                    </form>
-                </td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
+                </span>
+            </header>
+            <p>Spent <span th:text="${b.spent}">85.00</span>
+                <span sec:authorize="!hasRole('ADMIN')">of <span th:text="${b.monthlyLimit}">100.00</span>,
+                    warning at <span th:text="${b.warnPercent}">80</span>%</span></p>
+            <div sec:authorize="hasRole('ADMIN')">
+                <form method="post" th:action="@{/budgets/{c}(c=${b.category})}">
+                    <div class="grid">
+                        <label>Monthly limit
+                            <input name="monthlyLimit" inputmode="decimal" required th:value="${b.monthlyLimit}">
+                        </label>
+                        <label>Warn at %
+                            <input name="warnPercent" inputmode="numeric" th:value="${b.warnPercent}">
+                        </label>
+                    </div>
+                    <button type="submit">Save</button>
+                </form>
+                <form method="post" th:action="@{/budgets/{c}/delete(c=${b.category})}">
+                    <button type="submit" class="outline secondary">Delete</button>
+                </form>
+            </div>
+        </article>
+    </section>
 
     <form method="post" th:action="@{/budgets}" sec:authorize="hasRole('ADMIN')">
         <h2>Add budget</h2>
