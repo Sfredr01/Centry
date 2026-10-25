@@ -71,7 +71,7 @@ class QuickAddController {
             response.setStatus(422);
             return render(model, form, errors, fragment ? PANEL : "add");
         }
-        ExpenseEntity saved = expenseService.record(event).expense();
+        ExpenseEntity saved = expenseService.record(event, null).expense();
         if (!fragment) {
             return "redirect:/add?saved";
         }

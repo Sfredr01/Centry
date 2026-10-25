@@ -8,6 +8,7 @@ import com.centry.model.BudgetLevel;
 import com.centry.model.SubscriptionAlertEvent;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
+import com.centry.repository.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,7 @@ class ExpenseServiceTest {
     @Mock private ApplicationEventPublisher events;
     @Mock private ExpenseRepository expenseRepository;
     @Mock private SubscriptionAlertRepository subscriptionAlertRepository;
+    @Mock private UserRepository users;
 
     private SimpleMeterRegistry registry;
     private ExpenseService service;
@@ -59,7 +61,7 @@ class ExpenseServiceTest {
     void setUp() {
         registry = new SimpleMeterRegistry();
         service = new ExpenseService(budgetAlertPolicy, subscriptionTrackingService, events,
-                expenseRepository, subscriptionAlertRepository, registry, CLOCK);
+                expenseRepository, subscriptionAlertRepository, users, registry, CLOCK);
     }
 
     private ExpenseEvent event(LocalDateTime ts) {
@@ -85,7 +87,7 @@ class ExpenseServiceTest {
 
     @Test
     void persistsExpenseWithEventTimestampAndSendsNoAlertsWhenNothingTriggers() {
-        service.record(event(TX_TIME));
+        service.record(event(TX_TIME), null);
 
         ExpenseEntity e = savedExpense();
         assertThat(e.transactionId()).isEqualTo("tx-1");
@@ -107,7 +109,7 @@ class ExpenseServiceTest {
                 "Entertainment", TX_TIME, null, null);
         when(expenseRepository.save(any())).thenReturn(saved);
 
-        ExpenseService.Recorded result = service.record(event(TX_TIME));
+        ExpenseService.Recorded result = service.record(event(TX_TIME), null);
 
         assertThat(result.expense()).isSameAs(saved);
         assertThat(result.created()).isTrue();
@@ -119,7 +121,7 @@ class ExpenseServiceTest {
         ExpenseEvent noId = event(TX_TIME);
         noId.setTransactionId(null);
 
-        service.record(noId);
+        service.record(noId, null);
 
         ArgumentCaptor<ExpenseEntity> c = ArgumentCaptor.forClass(ExpenseEntity.class);
         verify(expenseRepository).save(c.capture());
@@ -127,7 +129,11 @@ class ExpenseServiceTest {
     }
 
     private ExpenseEntity existing(LocalDateTime ts) {
-        return new ExpenseEntity(9L, "tx-1", "Netflix", new BigDecimal("15.990"), "Entertainment", ts, null, null);
+        return existing(ts, null);
+    }
+
+    private ExpenseEntity existing(LocalDateTime ts, Long spentBy) {
+        return new ExpenseEntity(9L, "tx-1", "Netflix", new BigDecimal("15.990"), "Entertainment", ts, spentBy, null);
     }
 
     private void assertNoSideEffects() {
@@ -142,7 +148,7 @@ class ExpenseServiceTest {
         ExpenseEntity stored = existing(TX_TIME);
         when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.of(stored));
 
-        ExpenseService.Recorded result = service.record(event(TX_TIME));
+        ExpenseService.Recorded result = service.record(event(TX_TIME), null);
 
         assertThat(result.expense()).isSameAs(stored);
         assertThat(result.created()).isFalse();
@@ -155,7 +161,7 @@ class ExpenseServiceTest {
         ExpenseEntity stored = existing(TX_TIME);
         when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.of(stored));
 
-        ExpenseService.Recorded result = service.record(event(null));
+        ExpenseService.Recorded result = service.record(event(null), null);
 
         assertThat(result.created()).isFalse();
         assertNoSideEffects();
@@ -166,7 +172,7 @@ class ExpenseServiceTest {
     void conflictingReplayThrows(String name, ExpenseEvent changed) {
         when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.of(existing(TX_TIME)));
 
-        assertThatThrownBy(() -> service.record(changed))
+        assertThatThrownBy(() -> service.record(changed, null))
                 .isInstanceOf(ExpenseConflictException.class)
                 .hasMessage("transactionId already used for a different expense");
         assertNoSideEffects();
@@ -191,7 +197,7 @@ class ExpenseServiceTest {
         when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.empty(), Optional.of(stored));
         when(expenseRepository.save(any())).thenThrow(new DuplicateKeyException("race"));
 
-        ExpenseService.Recorded result = service.record(event(TX_TIME));
+        ExpenseService.Recorded result = service.record(event(TX_TIME), null);
 
         assertThat(result.expense()).isSameAs(stored);
         assertThat(result.created()).isFalse();
@@ -205,7 +211,7 @@ class ExpenseServiceTest {
                 .thenReturn(Optional.empty(), Optional.of(existing(TX_TIME.plusDays(1))));
         when(expenseRepository.save(any())).thenThrow(new DuplicateKeyException("race"));
 
-        assertThatThrownBy(() -> service.record(event(TX_TIME))).isInstanceOf(ExpenseConflictException.class);
+        assertThatThrownBy(() -> service.record(event(TX_TIME), null)).isInstanceOf(ExpenseConflictException.class);
     }
 
     @Test
@@ -214,12 +220,12 @@ class ExpenseServiceTest {
         when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.empty());
         when(expenseRepository.save(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> service.record(event(TX_TIME))).isSameAs(failure);
+        assertThatThrownBy(() -> service.record(event(TX_TIME), null)).isSameAs(failure);
     }
 
     @Test
     void nullTimestampDefaultsFromClock() {
-        service.record(event(null));
+        service.record(event(null), null);
 
         ExpenseEntity e = savedExpense();
         assertThat(e.timestamp()).isEqualTo(CLOCK_NOW);
@@ -230,7 +236,7 @@ class ExpenseServiceTest {
     void monthDerivedFromOccurredOnNotClock() {
         LocalDateTime october = LocalDateTime.of(2025, 10, 20, 12, 0);
 
-        service.record(event(october));
+        service.record(event(october), null);
 
         verify(budgetAlertPolicy).evaluate("Entertainment", october);
     }
@@ -239,7 +245,7 @@ class ExpenseServiceTest {
     void noBudgetAlertFromPolicyPublishesNothing() {
         when(budgetAlertPolicy.evaluate("Entertainment", TX_TIME)).thenReturn(Optional.empty());
 
-        service.record(event(TX_TIME));
+        service.record(event(TX_TIME), null);
 
         verifyNoInteractions(events);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
@@ -250,7 +256,7 @@ class ExpenseServiceTest {
         BudgetAlertEvent alert = alertEvent(BudgetLevel.WARNING_EXCEEDED);
         when(budgetAlertPolicy.evaluate("Entertainment", TX_TIME)).thenReturn(Optional.of(alert));
 
-        service.record(event(TX_TIME));
+        service.record(event(TX_TIME), null);
 
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
@@ -267,7 +273,7 @@ class ExpenseServiceTest {
         SubscriptionAlertEvent alert = subAlert(TX_TIME);
         when(subscriptionTrackingService.checkPriceIncrease(any())).thenReturn(Optional.of(alert));
 
-        service.record(event(TX_TIME));
+        service.record(event(TX_TIME), null);
 
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
@@ -280,5 +286,79 @@ class ExpenseServiceTest {
         assertThat(s.timestamp()).isEqualTo(TX_TIME);
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
+    }
+
+    @Test
+    void spentByDefaultsToCreator() {
+        service.record(event(TX_TIME), 5L);
+
+        ExpenseEntity e = savedExpense();
+        assertThat(e.spentBy()).isEqualTo(5L);
+        assertThat(e.createdBy()).isEqualTo(5L);
+    }
+
+    @Test
+    void explicitSpenderIsKeptAndDistinctFromCreator() {
+        when(users.existsById(7L)).thenReturn(true);
+        ExpenseEvent forSomeoneElse = event(TX_TIME);
+        forSomeoneElse.setSpentBy(7L);
+
+        service.record(forSomeoneElse, 5L);
+
+        ExpenseEntity e = savedExpense();
+        assertThat(e.spentBy()).isEqualTo(7L);
+        assertThat(e.createdBy()).isEqualTo(5L);
+    }
+
+    @Test
+    void unknownSpenderRejected() {
+        ExpenseEvent ghost = event(TX_TIME);
+        ghost.setSpentBy(99L);
+
+        assertThatThrownBy(() -> service.record(ghost, 5L)).isInstanceOf(UnknownSpenderException.class);
+        assertNoSideEffects();
+    }
+
+    @Test
+    void kafkaRecordLeavesCreatorNull() {
+        when(users.existsById(7L)).thenReturn(true);
+        ExpenseEvent sent = event(TX_TIME);
+        sent.setSpentBy(7L);
+
+        service.record(sent, null);
+
+        ExpenseEntity e = savedExpense();
+        assertThat(e.spentBy()).isEqualTo(7L);
+        assertThat(e.createdBy()).isNull();
+    }
+
+    @Test
+    void noCreatorAndNoSpenderStaysUnattributed() {
+        service.record(event(TX_TIME), null);
+
+        ExpenseEntity e = savedExpense();
+        assertThat(e.spentBy()).isNull();
+        assertThat(e.createdBy()).isNull();
+    }
+
+    @Test
+    void replayWithDifferentSpenderConflicts() {
+        when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.of(existing(TX_TIME, 7L)));
+        ExpenseEvent other = event(TX_TIME);
+        other.setSpentBy(8L);
+
+        assertThatThrownBy(() -> service.record(other, 5L)).isInstanceOf(ExpenseConflictException.class);
+        assertNoSideEffects();
+    }
+
+    // The HTTP default (spentBy = caller) is filled in by the service, so a replay that omits it matches.
+    @Test
+    void replayThatOmitsOrRepeatsTheSpenderIsTheSameExpense() {
+        when(expenseRepository.findByTransactionId("tx-1")).thenReturn(Optional.of(existing(TX_TIME, 7L)));
+        ExpenseEvent same = event(TX_TIME);
+        same.setSpentBy(7L);
+
+        assertThat(service.record(event(TX_TIME), 5L).created()).isFalse();
+        assertThat(service.record(same, 5L).created()).isFalse();
     }
 }

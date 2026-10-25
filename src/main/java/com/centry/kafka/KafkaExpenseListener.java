@@ -20,6 +20,6 @@ public class KafkaExpenseListener {
     @KafkaListener(topics = KafkaConfig.RAW_EXPENSES_TOPIC, groupId = "centry-group",
             containerFactory = KafkaConfig.RAW_EXPENSES_CONTAINER_FACTORY)
     public void onMessage(@Payload @Valid ExpenseEvent event) {
-        expenseService.record(event);
+        expenseService.record(event, null);
     }
 }

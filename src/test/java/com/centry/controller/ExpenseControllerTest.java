@@ -59,7 +59,7 @@ class ExpenseControllerTest {
                 .category("dining")
                 .timestamp(timestamp)
                 .build();
-        when(expenseService.record(any())).thenReturn(new Recorded(stored(event), true));
+        when(expenseService.record(any(), any())).thenReturn(new Recorded(stored(event), true));
 
         mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -70,7 +70,7 @@ class ExpenseControllerTest {
                 .andExpect(jsonPath("$.transactionId").value("tx-123"));
 
         ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
-        verify(expenseService).record(captor.capture());
+        verify(expenseService).record(captor.capture(), any());
         ExpenseEvent sent = captor.getValue();
         assertThat(sent.getTransactionId()).isEqualTo("tx-123");
         assertThat(sent.getTimestamp()).isEqualTo(timestamp);
@@ -83,7 +83,7 @@ class ExpenseControllerTest {
     void replayedExpenseIs200WithLocation() throws Exception {
         ExpenseEntity existing = new ExpenseEntity(7L, "tx-1", "Coffee Shop", BigDecimal.ONE, "dining",
                 LocalDateTime.of(2026, 3, 4, 5, 6, 7), null, null);
-        when(expenseService.record(any())).thenReturn(new Recorded(existing, false));
+        when(expenseService.record(any(), any())).thenReturn(new Recorded(existing, false));
 
         mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -96,7 +96,7 @@ class ExpenseControllerTest {
     // The service assigns a missing id and defaults a missing timestamp for every entry point (HTTP and Kafka).
     @Test
     void missingTransactionIdAndTimestampAreLeftToTheService() throws Exception {
-        when(expenseService.record(any())).thenReturn(new Recorded(
+        when(expenseService.record(any(), any())).thenReturn(new Recorded(
                 new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now(), null, null), true));
 
         mockMvc.perform(post("/api/v1/expenses").with(csrf())
@@ -105,7 +105,7 @@ class ExpenseControllerTest {
                 .andExpect(status().isCreated());
 
         ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
-        verify(expenseService).record(captor.capture());
+        verify(expenseService).record(captor.capture(), any());
         ExpenseEvent sent = captor.getValue();
         assertThat(sent.getTransactionId()).isNull();
         assertThat(sent.getTimestamp()).isNull();

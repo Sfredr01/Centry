@@ -25,7 +25,7 @@ public class ExpenseController {
     @PostMapping
     public ResponseEntity<ExpenseEntity> createExpense(@Valid @RequestBody ExpenseEvent expense) {
         // The service assigns a missing transaction id and defaults a missing timestamp from the Clock.
-        Recorded recorded = expenseService.record(expense);
+        Recorded recorded = expenseService.record(expense, null);
         URI location = location(recorded.expense());
         // A replay of an already stored expense is not a new resource: 200 instead of 201.
         return recorded.created()

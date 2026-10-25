@@ -93,12 +93,12 @@ class ExpenseServiceTransactionTest {
     @Test
     void rollsBackOnDownstreamFailure() {
         // First charge only seeds the merchant history, so no subscription alert yet.
-        expenseService.record(event("tx-first", "10.00"));
+        expenseService.record(event("tx-first", "10.00"), null);
         // Second charge: over the limit (budget alert saved and published) and a price increase,
         // whose alert row then fails to save.
         doThrow(new IllegalStateException("boom")).when(subscriptionAlertRepository).save(any());
 
-        assertThatThrownBy(() -> expenseService.record(event("tx-second", "120.00")))
+        assertThatThrownBy(() -> expenseService.record(event("tx-second", "120.00"), null))
                 .isInstanceOf(IllegalStateException.class).hasMessage("boom");
 
         assertThat(expenseRepository.findByTransactionId("tx-second")).isEmpty();

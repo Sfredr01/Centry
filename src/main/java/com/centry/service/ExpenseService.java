@@ -6,6 +6,7 @@ import com.centry.model.SubscriptionAlertEvent;
 import com.centry.dto.ExpenseEvent;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
+import com.centry.repository.UserRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -32,6 +33,7 @@ public class ExpenseService {
     private final ApplicationEventPublisher events;
     private final ExpenseRepository expenseRepository;
     private final SubscriptionAlertRepository subscriptionAlertRepository;
+    private final UserRepository users;
 
     private final Clock clock;
 
@@ -45,6 +47,7 @@ public class ExpenseService {
                            ApplicationEventPublisher events,
                            ExpenseRepository expenseRepository,
                            SubscriptionAlertRepository subscriptionAlertRepository,
+                           UserRepository users,
                            MeterRegistry meterRegistry,
                            Clock clock) {
         this.budgetAlertPolicy = budgetAlertPolicy;
@@ -52,6 +55,7 @@ public class ExpenseService {
         this.events = events;
         this.expenseRepository = expenseRepository;
         this.subscriptionAlertRepository = subscriptionAlertRepository;
+        this.users = users;
         this.clock = clock;
 
         this.expensesConsumedCounter = meterRegistry.counter("centry.expenses.consumed");
@@ -70,9 +74,14 @@ public class ExpenseService {
      * <p>{@code transactionId} is the idempotency key: replaying an identical expense returns the stored one
      * untouched, replaying it with a different payload is a conflict. The expense and its alert rows commit
      * or roll back together, and alert events only reach their listeners after the commit.
+     *
+     * @param createdBy the logged-in user recording the expense, or null (Kafka). It is an argument and never
+     *                  part of the event, so no client can claim to be someone else. A missing
+     *                  {@code spentBy} defaults to it.
+     * @throws UnknownSpenderException if {@code spentBy} is not a user
      */
     @Transactional
-    public Recorded record(ExpenseEvent event) {
+    public Recorded record(ExpenseEvent event, Long createdBy) {
         return expenseProcessingTimer.record(() -> {
             LocalDateTime txTime = event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now(clock);
             // Every entry point (HTTP, Kafka) may omit the id; without one the expense cannot be replayed safely.
@@ -85,11 +94,17 @@ public class ExpenseService {
                 return replay(existing.get(), event);
             }
 
+            // createdBy comes from the authenticated principal, so only a client-supplied spender is checked.
+            if (event.getSpentBy() != null && !users.existsById(event.getSpentBy())) {
+                throw new UnknownSpenderException(event.getSpentBy());
+            }
+            Long spentBy = event.getSpentBy() != null ? event.getSpentBy() : createdBy;
+
             // 1. Persist Expense Entity
             ExpenseEntity saved;
             try {
                 saved = expenseRepository.save(new ExpenseEntity(null, event.getTransactionId(),
-                        event.getMerchant(), event.getAmount(), event.getCategory(), txTime, null, null));
+                        event.getMerchant(), event.getAmount(), event.getCategory(), txTime, spentBy, createdBy));
             } catch (DuplicateKeyException race) {
                 // A concurrent request stored the same key between the lookup and the insert.
                 return replay(expenseRepository.findByTransactionId(event.getTransactionId())
@@ -127,7 +142,9 @@ public class ExpenseService {
                 && Objects.equals(stored.category(), event.getCategory())
                 && stored.amount().compareTo(event.getAmount()) == 0
                 // A replay that never supplied a timestamp can not contradict the stored one.
-                && (event.getTimestamp() == null || event.getTimestamp().equals(stored.timestamp()));
+                && (event.getTimestamp() == null || event.getTimestamp().equals(stored.timestamp()))
+                // Same for the spender: an omitted one defaults to the caller and is not compared.
+                && (event.getSpentBy() == null || event.getSpentBy().equals(stored.spentBy()));
         if (!sameExpense) {
             throw new ExpenseConflictException();
         }
