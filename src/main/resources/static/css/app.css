@@ -1,0 +1,10 @@
+/* Pico does the styling; this file only holds what Pico has no class for. */
+.signed-in { display: flex; gap: .75rem; align-items: center; margin: 0; }
+.signed-in button { width: auto; margin: 0; padding: .25rem .75rem; }
+
+/* Budget bars: Pico's progress uses its primary color, recolor by budget level. */
+progress[data-level="WARNING_EXCEEDED"] { color: var(--pico-color-amber-500, #ffb300); }
+progress[data-level="LIMIT_EXCEEDED"] { color: var(--pico-del-color, #c62828); }
+
+[role="alert"] { color: var(--pico-del-color); }
+.muted { color: var(--pico-muted-color); }

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!--/* Shared page shell. A page replaces its own <html> with page(title, ~{::main}). */-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:fragment="page(title, content)">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#0172ad">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <!--/* htmx ignores 4xx by default; a 422 carries the form with its inline errors, so swap it. */-->
+    <meta name="htmx-config"
+          content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'>
+    <title th:text="|${title} - Centry|">Centry</title>
+    <link rel="manifest" th:href="@{/manifest.webmanifest}">
+    <link rel="icon" type="image/svg+xml" th:href="@{/icons/icon.svg}">
+    <link rel="stylesheet" th:href="@{/vendor/pico.min.css}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/vendor/htmx.min.js}" defer></script>
+</head>
+<body th:attr='hx-headers=|{"${_csrf.headerName}":"${_csrf.token}"}|'>
+<header class="container" sec:authorize="isAuthenticated()">
+    <nav>
+        <ul>
+            <li><a th:href="@{/add}">Add</a></li>
+            <li><a th:href="@{/}">Dashboard</a></li>
+            <li><a th:href="@{/budgets}">Budgets</a></li>
+        </ul>
+        <ul>
+            <li>
+                <form method="post" th:action="@{/logout}" class="signed-in">
+                    <span sec:authentication="name">user</span>
+                    <button type="submit" class="outline secondary">Log out</button>
+                </form>
+            </li>
+        </ul>
+    </nav>
+</header>
+<th:block th:insert="${content}"></th:block>
+</body>
+</html>
