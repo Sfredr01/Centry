@@ -6,6 +6,8 @@ import com.centry.model.BudgetStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,24 +16,26 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BudgetTrackingService {
 
     private final BudgetConfigProperties budgetConfig;
+    private final Clock clock;
 
     // Key format: "YYYY-MM:category" (e.g., "2026-09:dining")
     private final Map<String, BigDecimal> monthlyCategoryTotals = new ConcurrentHashMap<>();
 
-    public BudgetTrackingService(BudgetConfigProperties budgetConfig) {
+    public BudgetTrackingService(BudgetConfigProperties budgetConfig, Clock clock) {
         this.budgetConfig = budgetConfig;
+        this.clock = clock;
     }
 
     /**
-     * Records a new transaction and returns the updated BudgetStatus.
+     * Records a transaction against the month it occurred in and returns the updated BudgetStatus.
      */
-    public BudgetStatus recordExpense(String category, BigDecimal amount) {
+    public BudgetStatus recordExpense(String category, BigDecimal amount, LocalDateTime occurredAt) {
         if (category == null || amount == null) {
             return null;
         }
 
         String normalizedCategory = category.trim().toLowerCase();
-        String currentMonthKey = YearMonth.now().toString() + ":" + normalizedCategory;
+        String currentMonthKey = YearMonth.from(occurredAt) + ":" + normalizedCategory;
 
         // Atomically update running total
         BigDecimal newTotal = monthlyCategoryTotals.merge(currentMonthKey, amount, BigDecimal::add);
@@ -58,7 +62,7 @@ public class BudgetTrackingService {
 
     public BigDecimal getCurrentTotal(String category) {
         String normalizedCategory = category.trim().toLowerCase();
-        String currentMonthKey = YearMonth.now().toString() + ":" + normalizedCategory;
+        String currentMonthKey = YearMonth.now(clock) + ":" + normalizedCategory;
         return monthlyCategoryTotals.getOrDefault(currentMonthKey, BigDecimal.ZERO);
     }
 }

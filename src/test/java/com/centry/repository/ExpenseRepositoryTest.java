@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -62,6 +64,36 @@ class ExpenseRepositoryTest {
     @Test
     void sumAmountByCategoryIsEmptyWithNoExpenses() {
         assertThat(repository.sumAmountByCategory()).isEmpty();
+    }
+
+    @Test
+    void findsByIdAndByTransactionId() {
+        ExpenseEntity saved = repository.save(expense("dining", "10.50"));
+
+        assertThat(repository.findById(saved.id())).contains(saved);
+        assertThat(repository.findByTransactionId(saved.transactionId())).contains(saved);
+    }
+
+    @Test
+    void findsNothingForUnknownKeys() {
+        assertThat(repository.findById(999_999L)).isEmpty();
+        assertThat(repository.findByTransactionId("nope")).isEmpty();
+    }
+
+    @Test
+    void duplicateTransactionIdIsReportedAsDuplicateKey() {
+        repository.save(expense("dining", "10.50"));
+
+        assertThatThrownBy(() -> repository.save(expense("dining", "10.50")))
+                .isInstanceOf(DuplicateKeyException.class);
+        assertThat(repository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void otherConstraintViolationsAreNotDuplicateKeys() {
+        assertThatThrownBy(() -> repository.save(expense("dining", "0.00")))
+                .isNotInstanceOf(DuplicateKeyException.class)
+                .isInstanceOf(DataAccessException.class);
     }
 
     @Test

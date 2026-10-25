@@ -5,18 +5,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SubscriptionTrackingServiceTest {
 
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2025-11-15T10:00:00Z"), ZoneOffset.UTC);
+
     private SubscriptionTrackingService subscriptionTrackingService;
 
     @BeforeEach
     void setUp() {
-        subscriptionTrackingService = new SubscriptionTrackingService();
+        subscriptionTrackingService = new SubscriptionTrackingService(CLOCK);
     }
 
     @Test
@@ -54,12 +59,11 @@ class SubscriptionTrackingServiceTest {
 
     @Test
     void nullTimestampDefaultsToNow() {
-        LocalDateTime before = LocalDateTime.now();
         subscriptionTrackingService.processAndCheckSubscription("Netflix", BigDecimal.TEN, null);
 
         List<SubscriptionTrackingService.TransactionRecord> history = subscriptionTrackingService.getMerchantHistory("Netflix");
         assertEquals(1, history.size());
-        assertFalse(history.get(0).timestamp().isBefore(before));
+        assertEquals(LocalDateTime.of(2025, 11, 15, 10, 0), history.get(0).timestamp());
     }
 
     @Test
