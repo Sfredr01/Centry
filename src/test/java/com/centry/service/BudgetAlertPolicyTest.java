@@ -119,6 +119,15 @@ class BudgetAlertPolicyTest {
     }
 
     @Test
+    void eventCarriesThePersistedAlertId() {
+        spend("85.00", JAN);
+
+        Long rowId = alerts.findTop50ByOrderByTimestampDesc().get(0).id();
+        assertThat(applicationEvents.stream(BudgetAlertEvent.class).findFirst().orElseThrow().getAlertId())
+                .isEqualTo(rowId);
+    }
+
+    @Test
     void warningMessageMentionsWarningThreshold() {
         spend("85.00", JAN);
 

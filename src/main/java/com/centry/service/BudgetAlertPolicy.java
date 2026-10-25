@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 /**
  * Decides whether a just-recorded expense raises a budget alert. Runs inside the record transaction, after
@@ -54,14 +55,16 @@ public class BudgetAlertPolicy {
                 status.category(), status.spent(), limit ? "monthly limit" : "warning threshold",
                 limit ? status.monthlyLimit() : status.warningAmount());
 
-        boolean inserted = alertRepository.insertIfAbsent(new BudgetAlertEntity(null, status.category(),
+        OptionalLong alertId = alertRepository.insertIfAbsent(new BudgetAlertEntity(null, status.category(),
                 status.spent(), status.monthlyLimit(), status.warningAmount(), status.level(), message,
                 LocalDateTime.now(clock)), period);
-        if (!inserted) {
+        if (alertId.isEmpty()) {
             return Optional.empty();
         }
         log.warn("Triggering Budget Alert: {}", message);
-        return Optional.of(new BudgetAlertEvent(status.category(), status.spent(), status.monthlyLimit(),
-                status.warningAmount(), status.level(), message));
+        BudgetAlertEvent event = new BudgetAlertEvent(status.category(), status.spent(), status.monthlyLimit(),
+                status.warningAmount(), status.level(), message);
+        event.setAlertId(alertId.getAsLong());
+        return Optional.of(event);
     }
 }

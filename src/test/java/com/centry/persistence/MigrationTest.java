@@ -1,12 +1,17 @@
 package com.centry.persistence;
 
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,5 +95,23 @@ class MigrationTest {
         assertThat(jdbc.sql("SELECT warn_pct FROM budget WHERE category_key = 'ok'")
                 .query(Integer.class).single()).isEqualTo(80);
         jdbc.sql("DELETE FROM budget").update();
+    }
+
+    @Test
+    void v3AddsNotifiedAtAndMarksExistingRowsNotified(@TempDir Path dir) {
+        String url = "jdbc:sqlite:" + dir.resolve("old.db");
+        Flyway.configure().dataSource(url, null, null).target("2").load().migrate();
+        var old = JdbcClient.create(new DriverManagerDataSource(url));
+        old.sql("INSERT INTO budget_alert (category, status, occurred_at) VALUES ('food', 'WARNING_EXCEEDED', "
+                + "'2026-01-05T10:00:00')").update();
+
+        Flyway.configure().dataSource(url, null, null).target("3").load().migrate();
+
+        assertThat(old.sql("SELECT notified_at FROM budget_alert").query(String.class).single())
+                .isEqualTo("2026-01-05T10:00:00");
+        old.sql("INSERT INTO budget_alert (category, status, occurred_at) VALUES ('rent', 'LIMIT_EXCEEDED', "
+                + "'2026-01-06T10:00:00')").update();
+        assertThat(old.sql("SELECT notified_at FROM budget_alert WHERE category = 'rent'")
+                .query(String.class).optional()).isEmpty();
     }
 }

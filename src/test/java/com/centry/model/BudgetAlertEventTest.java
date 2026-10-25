@@ -38,6 +38,7 @@ class BudgetAlertEventTest {
         assertNull(e.getWarningThreshold());
         assertNull(e.getAlertLevel());
         assertNull(e.getMessage());
+        assertNull(e.getAlertId());
     }
 
     @Test
@@ -77,6 +78,7 @@ class BudgetAlertEventTest {
     void jsonRoundTripPreservesPayload() throws Exception {
         BudgetAlertEvent original = sample();
         original.setTimestamp(Instant.parse("2024-05-06T07:08:09Z"));
+        original.setAlertId(42L);
 
         String json = mapper.writeValueAsString(original);
         BudgetAlertEvent copy = mapper.readValue(json, BudgetAlertEvent.class);
@@ -88,5 +90,6 @@ class BudgetAlertEventTest {
         assertEquals(original.getAlertLevel(), copy.getAlertLevel());
         assertEquals(original.getMessage(), copy.getMessage());
         assertEquals(original.getTimestamp(), copy.getTimestamp());
+        assertEquals(42L, copy.getAlertId());
     }
 }

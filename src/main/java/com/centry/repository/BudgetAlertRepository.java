@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.OptionalLong;
 
 @Repository
 public class BudgetAlertRepository {
@@ -37,17 +38,20 @@ public class BudgetAlertRepository {
     /**
      * Stores the alert unless one exists for the same category (normalized), month and level.
      *
-     * @return true if a row was inserted, false if the dedupe index ignored it
+     * @return the new row's id, or empty if the dedupe index ignored the insert
      */
-    public boolean insertIfAbsent(BudgetAlertEntity a, YearMonth period) {
-        return jdbc.sql("""
+    public OptionalLong insertIfAbsent(BudgetAlertEntity a, YearMonth period) {
+        var keys = new GeneratedKeyHolder();
+        int inserted = jdbc.sql("""
                         INSERT OR IGNORE INTO budget_alert (category, current_spend_cents, monthly_limit_cents,
                                                             warning_amount_cents, status, message, occurred_at, period)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""")
                 .params(a.category(), Cents.toCents(a.currentSpend()), Cents.toCents(a.monthlyLimit()),
                         Cents.toCents(a.warningAmount()), a.status().name(), a.message(),
                         Cents.toText(a.timestamp()), period.toString())
-                .update() == 1;
+                .update(keys);
+        // After an ignored insert the driver would hand back the previous row's key, so only read it on success.
+        return inserted == 1 ? OptionalLong.of(keys.getKey().longValue()) : OptionalLong.empty();
     }
 
     public List<BudgetAlertEntity> findTop50ByOrderByTimestampDesc() {
