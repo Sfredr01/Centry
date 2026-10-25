@@ -105,22 +105,18 @@ public class ExpenseService {
                 events.publishEvent(alert);
             });
 
-            // 3. Process subscription and anomaly detection
-            SubscriptionAlertEvent subscriptionAlert = subscriptionTrackingService.processAndCheckSubscription(
-                    event.getMerchant(), event.getAmount(), txTime);
-
-            if (subscriptionAlert != null) {
+            // 3. Subscription price check against the merchant's previous charge, read from the database.
+            subscriptionTrackingService.checkPriceIncrease(saved).ifPresent(subscriptionAlert -> {
                 subscriptionAlertsCounter.increment();
                 log.warn("Triggering Subscription Alert: {}", subscriptionAlert.getMessage());
 
-                // Persist subscription alert
                 subscriptionAlertRepository.save(new SubscriptionAlertEntity(null, subscriptionAlert.getMerchant(),
                         subscriptionAlert.getPreviousAmount(), subscriptionAlert.getCurrentAmount(),
                         subscriptionAlert.getAnomalyType(), subscriptionAlert.getMessage(),
-                        subscriptionAlert.getTimestamp() != null ? subscriptionAlert.getTimestamp() : LocalDateTime.now(clock)));
+                        subscriptionAlert.getTimestamp()));
 
                 events.publishEvent(subscriptionAlert);
-            }
+            });
 
             return new Recorded(saved, true);
         });

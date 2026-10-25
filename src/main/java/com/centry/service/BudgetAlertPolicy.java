@@ -4,7 +4,7 @@ import com.centry.entity.BudgetAlertEntity;
 import com.centry.model.BudgetAlertEvent;
 import com.centry.model.BudgetLevel;
 import com.centry.model.BudgetStatus;
-import com.centry.model.Categories;
+import com.centry.model.Keys;
 import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.BudgetStatusQuery;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public class BudgetAlertPolicy {
 
     public Optional<BudgetAlertEvent> evaluate(String category, LocalDateTime occurredAt) {
         YearMonth period = YearMonth.from(occurredAt);
-        return statusQuery.status(Categories.key(category), period)
+        return statusQuery.status(Keys.of(category), period)
                 .filter(status -> status.level() != BudgetLevel.OK)
                 .flatMap(status -> raise(status, period));
     }

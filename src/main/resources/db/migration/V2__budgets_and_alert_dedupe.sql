@@ -1,4 +1,4 @@
--- Budgets are data, not config. category_key is the normalized key: trim + lower-case (see Categories.key).
+-- Budgets are data, not config. category_key is the normalized key: trim + lower-case (see Keys.of).
 CREATE TABLE budget (
     category_key        TEXT    PRIMARY KEY,
     monthly_limit_cents INTEGER NOT NULL CHECK (monthly_limit_cents > 0),

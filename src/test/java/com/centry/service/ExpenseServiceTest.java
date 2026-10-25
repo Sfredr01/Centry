@@ -93,7 +93,7 @@ class ExpenseServiceTest {
         assertThat(e.amount()).isEqualByComparingTo("15.99");
         assertThat(e.category()).isEqualTo("Entertainment");
         assertThat(e.timestamp()).isEqualTo(TX_TIME);
-        verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME);
+        verify(subscriptionTrackingService).checkPriceIncrease(any());
         verifyNoInteractions(subscriptionAlertRepository, events);
         assertThat(count("centry.expenses.consumed")).isEqualTo(1.0);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
@@ -223,7 +223,6 @@ class ExpenseServiceTest {
 
         ExpenseEntity e = savedExpense();
         assertThat(e.timestamp()).isEqualTo(CLOCK_NOW);
-        verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), CLOCK_NOW);
         verify(budgetAlertPolicy).evaluate("Entertainment", CLOCK_NOW);
     }
 
@@ -266,8 +265,7 @@ class ExpenseServiceTest {
     @Test
     void subscriptionAlertWithTimestampIsPersistedAndPublished() {
         SubscriptionAlertEvent alert = subAlert(TX_TIME);
-        when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(alert);
+        when(subscriptionTrackingService.checkPriceIncrease(any())).thenReturn(Optional.of(alert));
 
         service.record(event(TX_TIME));
 
@@ -280,20 +278,6 @@ class ExpenseServiceTest {
         assertThat(s.anomalyType()).isEqualTo("PRICE_INCREASE");
         assertThat(s.message()).isEqualTo("Price went up");
         assertThat(s.timestamp()).isEqualTo(TX_TIME);
-        verify(events).publishEvent((Object) alert);
-                assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
-    }
-
-    @Test
-    void subscriptionAlertWithoutTimestampGetsCurrentTime() {
-        SubscriptionAlertEvent alert = subAlert(null);
-        when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(alert);
-        service.record(event(TX_TIME));
-
-        ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
-        verify(subscriptionAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().timestamp()).isEqualTo(CLOCK_NOW);
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }

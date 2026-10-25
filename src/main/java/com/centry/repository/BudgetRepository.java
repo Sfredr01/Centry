@@ -14,7 +14,7 @@ public class BudgetRepository {
         this.jdbc = jdbc;
     }
 
-    /** Creates or replaces the budget of a normalized category key (see {@code Categories.key}). */
+    /** Creates or replaces the budget of a normalized category key (see {@code Keys.of}). */
     public void upsert(String categoryKey, BigDecimal monthlyLimit, int warnPercent) {
         jdbc.sql("""
                         INSERT INTO budget (category_key, monthly_limit_cents, warn_pct) VALUES (?, ?, ?)

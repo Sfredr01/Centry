@@ -64,6 +64,15 @@ public class ExpenseRepository {
                 .query(ExpenseRepository::map).optional();
     }
 
+    /**
+     * The merchant's latest earlier expense by id (insertion order), excluding the current row. The key is
+     * the normalized merchant (see {@code Keys.of}); uses idx_expense_merchant_key_id.
+     */
+    public Optional<ExpenseEntity> findPreviousForMerchant(String merchantKey, long currentId) {
+        return jdbc.sql(SELECT + " WHERE lower(trim(merchant)) = ? AND id < ? ORDER BY id DESC LIMIT 1")
+                .params(merchantKey, currentId).query(ExpenseRepository::map).optional();
+    }
+
     private static ExpenseEntity map(ResultSet rs, int row) throws SQLException {
         return new ExpenseEntity(
                 rs.getLong("id"),
