@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.OptionalLong;
@@ -52,6 +53,12 @@ public class BudgetAlertRepository {
                 .update(keys);
         // After an ignored insert the driver would hand back the previous row's key, so only read it on success.
         return inserted == 1 ? OptionalLong.of(keys.getKey().longValue()) : OptionalLong.empty();
+    }
+
+    public void markNotified(Long id, LocalDateTime notifiedAt) {
+        jdbc.sql("UPDATE budget_alert SET notified_at = ? WHERE id = ?")
+                .params(Cents.toText(notifiedAt), id)
+                .update();
     }
 
     public List<BudgetAlertEntity> findTop50ByOrderByTimestampDesc() {

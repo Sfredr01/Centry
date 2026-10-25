@@ -46,7 +46,7 @@ class KafkaProfileIngestTest {
 
     @DynamicPropertySource
     static void budget(DynamicPropertyRegistry registry) {
-        registry.add("centry.budget.webhook-url", () -> "");
+        registry.add("centry.notify.webhook.url", () -> "");
     }
 
     @Autowired

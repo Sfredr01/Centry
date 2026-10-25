@@ -65,8 +65,27 @@ curl -X DELETE http://localhost:8080/api/v1/budgets/groceries
 
 Spend is summed from the stored expenses for the calendar month of each expense, so it survives restarts. A
 category without a budget never alerts. Each category raises at most one warning and one limit alert per month;
-the warning amount is `monthlyLimit * warnPercent / 100`, rounded up to a whole cent. Set the webhook with
-`centry.budget.webhook-url`.
+the warning amount is `monthlyLimit * warnPercent / 100`, rounded up to a whole cent.
+
+## Notifications
+
+Budget alerts are pushed to every channel that is configured; with none configured they are only logged.
+
+| Property | Meaning |
+| --- | --- |
+| `centry.notify.ntfy.url`, `centry.notify.ntfy.topic` | Publish to `{url}/{topic}` on an [ntfy](https://ntfy.sh) server (both required) |
+| `centry.notify.ntfy.token` | Optional; sent as `Authorization: Bearer <token>` |
+| `centry.notify.webhook.url` | Discord/Slack-style webhook (`{"content": ..., "text": ...}`) |
+| `centry.notify.retry-interval` | Delay between retry sweeps, default `PT5M` |
+| `centry.notify.connect-timeout` / `centry.notify.read-timeout` | Default `PT5S` / `PT10S` |
+
+Each alert row records `notified_at` once every configured channel accepted it. A failed delivery leaves it
+empty, and a sweeper retries those alerts every `retry-interval`: it waits one minute after the alert was
+raised and gives up on alerts older than 24 hours. Delivery is tracked per alert, so when one channel fails
+the retry re-sends to all of them and another channel may get a duplicate. Subscription alerts are not
+notified yet.
+
+The old `centry.budget.webhook-url` property is now `centry.notify.webhook.url` (no alias).
 
 ## KRaft (Confluent) usage & troubleshooting
 

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.time.Duration;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,28 +12,25 @@ class NotifyConfigTest {
     private final ApplicationContextRunner runner =
             new ApplicationContextRunner().withUserConfiguration(NotifyConfig.class);
 
-    @SuppressWarnings("unchecked")
-    private static List<Notifier> notifiers(org.springframework.context.ApplicationContext ctx) {
-        return (List<Notifier>) ctx.getBean("notifiers");
-    }
-
     @Test
     void notifiersOnlyCreatedWhenConfigured() {
-        runner.run(ctx -> assertThat(notifiers(ctx)).isEmpty());
+        runner.run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class)).isEmpty());
 
         // ntfy needs both url and topic; blank values count as not configured.
         runner.withPropertyValues("centry.notify.ntfy.url=http://ntfy.test")
-                .run(ctx -> assertThat(notifiers(ctx)).isEmpty());
+                .run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class)).isEmpty());
         runner.withPropertyValues("centry.notify.ntfy.topic=alerts", "centry.notify.webhook.url=  ")
-                .run(ctx -> assertThat(notifiers(ctx)).isEmpty());
+                .run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class)).isEmpty());
 
         runner.withPropertyValues("centry.notify.ntfy.url=http://ntfy.test", "centry.notify.ntfy.topic=alerts")
-                .run(ctx -> assertThat(notifiers(ctx)).singleElement().isInstanceOf(NtfyNotifier.class));
+                .run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class).values())
+                        .singleElement().isInstanceOf(NtfyNotifier.class));
         runner.withPropertyValues("centry.notify.webhook.url=http://hook.test/x")
-                .run(ctx -> assertThat(notifiers(ctx)).singleElement().isInstanceOf(WebhookNotifier.class));
+                .run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class).values())
+                        .singleElement().isInstanceOf(WebhookNotifier.class));
         runner.withPropertyValues("centry.notify.ntfy.url=http://ntfy.test", "centry.notify.ntfy.topic=alerts",
                         "centry.notify.webhook.url=http://hook.test/x")
-                .run(ctx -> assertThat(notifiers(ctx)).hasSize(2));
+                .run(ctx -> assertThat(ctx.getBeansOfType(Notifier.class)).hasSize(2));
     }
 
     @Test
