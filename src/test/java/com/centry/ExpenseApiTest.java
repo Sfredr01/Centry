@@ -2,7 +2,6 @@ package com.centry;
 
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.BudgetAlertRepository;
-import com.centry.repository.BudgetRepository;
 import com.centry.repository.ExpenseRepository;
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
@@ -36,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -87,15 +87,13 @@ class ExpenseApiTest {
     @Autowired
     private BudgetAlertRepository budgetAlertRepository;
 
-    @Autowired
-    private BudgetRepository budgetRepository;
-
     // Alerts are deduplicated per category and month, so every test starts from no spend and no alerts.
     @BeforeEach
-    void freshBudgetState() {
+    void freshBudgetState() throws Exception {
         expenseRepository.deleteAll();
         budgetAlertRepository.deleteAll();
-        budgetRepository.upsert("apitest", new BigDecimal("100.00"), 80);
+        mockMvc.perform(put("/api/v1/budgets/apitest").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"monthlyLimit\":100.00,\"warnPercent\":80}")).andExpect(status().isOk());
     }
 
     @Test

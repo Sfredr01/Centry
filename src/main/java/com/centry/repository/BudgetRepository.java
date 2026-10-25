@@ -24,4 +24,9 @@ public class BudgetRepository {
                 .params(categoryKey, Cents.toCents(monthlyLimit), warnPercent)
                 .update();
     }
+
+    /** @return true if a budget existed and was removed */
+    public boolean delete(String categoryKey) {
+        return jdbc.sql("DELETE FROM budget WHERE category_key = ?").param(categoryKey).update() == 1;
+    }
 }
