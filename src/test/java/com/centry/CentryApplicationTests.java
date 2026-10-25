@@ -10,7 +10,7 @@ import java.sql.Connection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Context must start with no external broker or on-disk database (CI and offline dev).
+// Context must start with no external broker and only a throwaway SQLite file (CI and offline dev).
 @SpringBootTest
 @ActiveProfiles("test")
 class CentryApplicationTests {
@@ -23,9 +23,9 @@ class CentryApplicationTests {
 	}
 
 	@Test
-	void usesInMemoryDatabase() throws Exception {
+	void usesTempSqliteDatabase() throws Exception {
 		try (Connection connection = dataSource.getConnection()) {
-			assertThat(connection.getMetaData().getURL()).startsWith("jdbc:h2:mem:");
+			assertThat(connection.getMetaData().getURL()).startsWith("jdbc:sqlite:");
 		}
 	}
 }

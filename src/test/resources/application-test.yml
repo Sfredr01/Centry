@@ -1,4 +1,5 @@
-# Hermetic test overrides: no on-disk database, nothing written to ./data.
+# Hermetic test overrides: a unique SQLite file per Spring context under java.io.tmpdir,
+# nothing written to ./data. No :memory:, because pooled connections would each get their own database.
 spring:
   datasource:
-    url: jdbc:h2:mem:centry;DB_CLOSE_DELAY=-1
+    url: jdbc:sqlite:${java.io.tmpdir}/centry-test-${random.uuid}.db

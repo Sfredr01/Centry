@@ -6,16 +6,16 @@ spring:
     name: centry
 
   datasource:
-    url: jdbc:h2:file:./data/centrydb;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
-
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: update
-    show-sql: false
+    # SqliteDataDirectoryPostProcessor creates the directory; Docker sets CENTRY_DATA_DIR=/data.
+    url: jdbc:sqlite:${CENTRY_DATA_DIR:./data}/centry.db
+    hikari:
+      # SQLite allows one writer; a single connection avoids SQLITE_BUSY between pool members.
+      maximum-pool-size: 1
+      # Passed to the sqlite-jdbc driver as connection properties (applied to every connection).
+      data-source-properties:
+        journal_mode: WAL
+        busy_timeout: 5000
+        foreign_keys: true
 
 management:
   endpoints:

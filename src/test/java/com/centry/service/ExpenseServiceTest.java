@@ -78,11 +78,11 @@ class ExpenseServiceTest {
         service.record(event(TX_TIME));
 
         ExpenseEntity e = savedExpense();
-        assertThat(e.getTransactionId()).isEqualTo("tx-1");
-        assertThat(e.getMerchant()).isEqualTo("Netflix");
-        assertThat(e.getAmount()).isEqualByComparingTo("15.99");
-        assertThat(e.getCategory()).isEqualTo("Entertainment");
-        assertThat(e.getTimestamp()).isEqualTo(TX_TIME);
+        assertThat(e.transactionId()).isEqualTo("tx-1");
+        assertThat(e.merchant()).isEqualTo("Netflix");
+        assertThat(e.amount()).isEqualByComparingTo("15.99");
+        assertThat(e.category()).isEqualTo("Entertainment");
+        assertThat(e.timestamp()).isEqualTo(TX_TIME);
         verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME);
         verifyNoInteractions(budgetAlertRepository, subscriptionAlertRepository, events);
         assertThat(count("centry.expenses.consumed")).isEqualTo(1.0);
@@ -99,10 +99,10 @@ class ExpenseServiceTest {
 
         LocalDateTime after = LocalDateTime.now();
         ExpenseEntity e = savedExpense();
-        assertThat(e.getTimestamp()).isBetween(before, after);
+        assertThat(e.timestamp()).isBetween(before, after);
         ArgumentCaptor<LocalDateTime> passed = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(subscriptionTrackingService).processAndCheckSubscription(eq("Netflix"), any(), passed.capture());
-        assertThat(passed.getValue()).isEqualTo(e.getTimestamp());
+        assertThat(passed.getValue()).isEqualTo(e.timestamp());
     }
 
     @Test
@@ -128,13 +128,13 @@ class ExpenseServiceTest {
         ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
         verify(budgetAlertRepository).save(saved.capture());
         BudgetAlertEntity a = saved.getValue();
-        assertThat(a.getCategory()).isEqualTo("Entertainment");
-        assertThat(a.getCurrentSpend()).isEqualByComparingTo("120.00");
-        assertThat(a.getMonthlyLimit()).isEqualByComparingTo("100.00");
-        assertThat(a.getWarningAmount()).isEqualByComparingTo("80.00");
-        assertThat(a.getStatus()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
-        assertThat(a.getMessage()).isEqualTo(expectedMsg);
-        assertThat(a.getTimestamp()).isBetween(before, LocalDateTime.now());
+        assertThat(a.category()).isEqualTo("Entertainment");
+        assertThat(a.currentSpend()).isEqualByComparingTo("120.00");
+        assertThat(a.monthlyLimit()).isEqualByComparingTo("100.00");
+        assertThat(a.warningAmount()).isEqualByComparingTo("80.00");
+        assertThat(a.status()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
+        assertThat(a.message()).isEqualTo(expectedMsg);
+        assertThat(a.timestamp()).isBetween(before, LocalDateTime.now());
 
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
         verify(events).publishEvent(payload.capture());
@@ -156,8 +156,8 @@ class ExpenseServiceTest {
         String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds monthly limit of $100.00";
         ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
         verify(budgetAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().getMessage()).isEqualTo(expectedMsg);
-        assertThat(saved.getValue().getStatus()).isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
+        assertThat(saved.getValue().message()).isEqualTo(expectedMsg);
+        assertThat(saved.getValue().status()).isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
         verify(events).publishEvent(payload.capture());
         assertThat(((BudgetAlertEvent) payload.getValue()).getAlertLevel())
@@ -182,12 +182,12 @@ class ExpenseServiceTest {
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
         SubscriptionAlertEntity s = saved.getValue();
-        assertThat(s.getMerchant()).isEqualTo("Netflix");
-        assertThat(s.getPreviousAmount()).isEqualByComparingTo("9.99");
-        assertThat(s.getCurrentAmount()).isEqualByComparingTo("15.99");
-        assertThat(s.getAnomalyType()).isEqualTo("PRICE_INCREASE");
-        assertThat(s.getMessage()).isEqualTo("Price went up");
-        assertThat(s.getTimestamp()).isEqualTo(TX_TIME);
+        assertThat(s.merchant()).isEqualTo("Netflix");
+        assertThat(s.previousAmount()).isEqualByComparingTo("9.99");
+        assertThat(s.currentAmount()).isEqualByComparingTo("15.99");
+        assertThat(s.anomalyType()).isEqualTo("PRICE_INCREASE");
+        assertThat(s.message()).isEqualTo("Price went up");
+        assertThat(s.timestamp()).isEqualTo(TX_TIME);
         verify(events).publishEvent((Object) alert);
         verify(budgetAlertRepository, never()).save(any());
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
@@ -204,7 +204,7 @@ class ExpenseServiceTest {
 
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().getTimestamp()).isBetween(before, LocalDateTime.now());
+        assertThat(saved.getValue().timestamp()).isBetween(before, LocalDateTime.now());
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }

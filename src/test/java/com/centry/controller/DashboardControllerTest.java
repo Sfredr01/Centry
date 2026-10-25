@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -40,9 +41,9 @@ class DashboardControllerTest {
 
     @Test
     void summaryAggregatesCategorySpendAndCount() throws Exception {
-        when(expenseRepository.sumAmountByCategory()).thenReturn(List.of(
-                new Object[]{"dining", new BigDecimal("42.50")},
-                new Object[]{"travel", new BigDecimal("300.00")}));
+        when(expenseRepository.sumAmountByCategory()).thenReturn(Map.of(
+                "dining", new BigDecimal("42.50"),
+                "travel", new BigDecimal("300.00")));
         when(expenseRepository.count()).thenReturn(7L);
 
         mockMvc.perform(get("/api/v1/dashboard/summary"))
@@ -55,7 +56,7 @@ class DashboardControllerTest {
 
     @Test
     void summaryWithNoExpensesReturnsEmptyMapAndZeroCount() throws Exception {
-        when(expenseRepository.sumAmountByCategory()).thenReturn(Collections.emptyList());
+        when(expenseRepository.sumAmountByCategory()).thenReturn(Collections.emptyMap());
         when(expenseRepository.count()).thenReturn(0L);
 
         mockMvc.perform(get("/api/v1/dashboard/summary"))
@@ -68,9 +69,8 @@ class DashboardControllerTest {
     @Test
     void expensesReturnsAllExpenses() throws Exception {
         when(expenseRepository.findAll()).thenReturn(List.of(
-                ExpenseEntity.builder().id(1L).transactionId("tx-1").merchant("Cafe")
-                        .amount(new BigDecimal("4.50")).category("dining")
-                        .timestamp(LocalDateTime.of(2026, 1, 2, 3, 4, 5)).build()));
+                new ExpenseEntity(1L, "tx-1", "Cafe", new BigDecimal("4.50"), "dining",
+                        LocalDateTime.of(2026, 1, 2, 3, 4, 5))));
 
         mockMvc.perform(get("/api/v1/dashboard/expenses"))
                 .andExpect(status().isOk())
@@ -86,10 +86,8 @@ class DashboardControllerTest {
     @Test
     void budgetAlertsReturnsRepositoryResults() throws Exception {
         when(budgetAlertRepository.findTop50ByOrderByTimestampDesc()).thenReturn(List.of(
-                BudgetAlertEntity.builder().id(2L).category("dining")
-                        .currentSpend(new BigDecimal("105.00")).monthlyLimit(new BigDecimal("100.00"))
-                        .warningAmount(new BigDecimal("80.00"))
-                        .status(BudgetStatus.Status.LIMIT_EXCEEDED).message("over").build()));
+                new BudgetAlertEntity(2L, "dining", new BigDecimal("105.00"), new BigDecimal("100.00"),
+                        new BigDecimal("80.00"), BudgetStatus.Status.LIMIT_EXCEEDED, "over", null)));
 
         mockMvc.perform(get("/api/v1/dashboard/alerts/budget"))
                 .andExpect(status().isOk())
@@ -103,9 +101,8 @@ class DashboardControllerTest {
     @Test
     void subscriptionAlertsReturnsRepositoryResults() throws Exception {
         when(subscriptionAlertRepository.findTop50ByOrderByTimestampDesc()).thenReturn(List.of(
-                SubscriptionAlertEntity.builder().id(3L).merchant("Netflix")
-                        .previousAmount(new BigDecimal("15.49")).currentAmount(new BigDecimal("17.99"))
-                        .anomalyType("PRICE_INCREASE").message("up").build()));
+                new SubscriptionAlertEntity(3L, "Netflix", new BigDecimal("15.49"), new BigDecimal("17.99"),
+                        "PRICE_INCREASE", "up", null)));
 
         mockMvc.perform(get("/api/v1/dashboard/alerts/subscriptions"))
                 .andExpect(status().isOk())
