@@ -3,8 +3,8 @@ package com.centry.service;
 import com.centry.config.BudgetConfigProperties;
 import com.centry.model.BudgetAlertEvent;
 import com.centry.model.BudgetStatus;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,7 @@ class BudgetAlertConsumerTest {
 
     private record Received(String method, String contentType, String body) {}
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = tools.jackson.databind.json.JsonMapper.builder().build();
     private final List<Received> requests = new CopyOnWriteArrayList<>();
     private HttpServer server;
     private volatile int responseStatus;
