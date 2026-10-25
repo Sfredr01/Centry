@@ -61,6 +61,27 @@ public class BudgetAlertRepository {
                 .update();
     }
 
+    /** Deduplicated alerts not yet delivered, raised within [from, to] (both inclusive), oldest first. */
+    public List<BudgetAlertEntity> findUnsent(LocalDateTime from, LocalDateTime to) {
+        return jdbc.sql("""
+                        SELECT * FROM budget_alert
+                        WHERE period IS NOT NULL AND notified_at IS NULL AND occurred_at >= ? AND occurred_at <= ?
+                        ORDER BY occurred_at, id""")
+                .params(Cents.toText(from), Cents.toText(to))
+                .query(BudgetAlertRepository::map)
+                .list();
+    }
+
+    /** Ids of undelivered alerts raised before the given time. */
+    public List<Long> findAbandonedIds(LocalDateTime before) {
+        return jdbc.sql("""
+                        SELECT id FROM budget_alert
+                        WHERE period IS NOT NULL AND notified_at IS NULL AND occurred_at < ?""")
+                .param(Cents.toText(before))
+                .query(Long.class)
+                .list();
+    }
+
     public List<BudgetAlertEntity> findTop50ByOrderByTimestampDesc() {
         return jdbc.sql("SELECT * FROM budget_alert ORDER BY occurred_at DESC, id DESC LIMIT 50")
                 .query(BudgetAlertRepository::map)

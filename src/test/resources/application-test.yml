@@ -3,3 +3,8 @@
 spring:
   datasource:
     url: jdbc:sqlite:${java.io.tmpdir}/centry-test-${random.uuid}.db
+
+centry:
+  notify:
+    # Tests call AlertRetrySweeper.sweep() themselves; a background sweep would race their assertions.
+    retry-enabled: false
