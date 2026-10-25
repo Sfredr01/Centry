@@ -4,6 +4,7 @@ import com.centry.dto.ExpenseEvent;
 import com.centry.service.ExpenseProducer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -12,14 +13,18 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ExpenseController.class)
 class ExpenseControllerTest {
+
+    private static final String ACCEPTED = "Expense event accepted and published to Kafka.";
 
     @Autowired
     private MockMvc mockMvc;
@@ -32,19 +37,47 @@ class ExpenseControllerTest {
 
     @Test
     void testCreateExpenseEndpoint() throws Exception {
+        LocalDateTime timestamp = LocalDateTime.of(2026, 3, 4, 5, 6, 7);
         ExpenseEvent event = ExpenseEvent.builder()
                 .transactionId("tx-123")
                 .merchant("Coffee Shop")
                 .amount(BigDecimal.valueOf(4.50))
                 .category("dining")
-                .timestamp(LocalDateTime.now())
+                .timestamp(timestamp)
                 .build();
-
-        doNothing().when(expenseProducer).sendExpense(any(ExpenseEvent.class));
 
         mockMvc.perform(post("/api/v1/expenses")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(event)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(content().string(ACCEPTED));
+
+        ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
+        verify(expenseProducer).sendExpense(captor.capture());
+        ExpenseEvent sent = captor.getValue();
+        assertThat(sent.getTransactionId()).isEqualTo("tx-123");
+        assertThat(sent.getTimestamp()).isEqualTo(timestamp);
+        assertThat(sent.getMerchant()).isEqualTo("Coffee Shop");
+        assertThat(sent.getAmount()).isEqualByComparingTo("4.50");
+        assertThat(sent.getCategory()).isEqualTo("dining");
+    }
+
+    @Test
+    void missingTransactionIdAndTimestampAreGenerated() throws Exception {
+        LocalDateTime before = LocalDateTime.now();
+
+        mockMvc.perform(post("/api/v1/expenses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"merchant\":\"Coffee Shop\",\"amount\":4.50,\"category\":\"dining\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(ACCEPTED));
+
+        ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
+        verify(expenseProducer).sendExpense(captor.capture());
+        ExpenseEvent sent = captor.getValue();
+        assertThat(sent.getTransactionId()).isNotNull();
+        assertThat(UUID.fromString(sent.getTransactionId()).toString()).isEqualTo(sent.getTransactionId());
+        assertThat(sent.getTimestamp()).isNotNull().isAfterOrEqualTo(before);
+        assertThat(sent.getMerchant()).isEqualTo("Coffee Shop");
     }
 }
