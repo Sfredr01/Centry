@@ -50,6 +50,8 @@ class SecurityTest {
 
     @BeforeEach
     void household() {
+        // Expenses reference their creator, so they go before the users do.
+        jdbc.sql("DELETE FROM expense").update();
         jdbc.sql("DELETE FROM users WHERE username <> 'admin'").update();
         jdbc.sql("DELETE FROM persistent_logins").update();
         jdbc.sql("DELETE FROM budget").update();

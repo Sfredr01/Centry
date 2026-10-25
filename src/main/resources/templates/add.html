@@ -28,6 +28,14 @@
                 <small id="merchant-error" th:if="${errors.containsKey('merchant')}"
                        th:text="${errors['merchant']}"></small>
             </label>
+            <label>Spent by
+                <select name="spentBy" th:aria-invalid="${errors.containsKey('spentBy')} ? 'true'">
+                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.displayName}"
+                            th:selected="${m.id.toString() == form.spentBy}"></option>
+                </select>
+                <small id="spentBy-error" th:if="${errors.containsKey('spentBy')}"
+                       th:text="${errors['spentBy']}"></small>
+            </label>
             <label>Date
                 <input name="date" type="date"
                        th:value="${form.date}" th:aria-invalid="${errors.containsKey('date')} ? 'true'">

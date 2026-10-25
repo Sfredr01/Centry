@@ -7,18 +7,21 @@ import java.util.UUID;
  * What an expense form (quick-add or edit) submits, as plain text so a bad value can be shown back to the user as typed.
  * Missing fields arrive as null and are treated as empty.
  *
+ * @param spentBy   the chosen household member's user id as text; blank means the person saving
  * @param clientRef generated when the form is rendered and used as the expense's transaction id, so a
  *                  double-tapped Save (or a retried request) stores one row
  */
-record ExpenseForm(String amount, String category, String merchant, String date, String clientRef) {
+record ExpenseForm(String amount, String category, String merchant, String date, String spentBy,
+                   String clientRef) {
 
-    /** An empty form for a new expense dated {@code today}. */
-    static ExpenseForm blank(LocalDate today, String category) {
-        return new ExpenseForm("", category, "", today.toString(), UUID.randomUUID().toString());
+    /** An empty form for a new expense dated {@code today}, attributed to {@code spentBy} (a user id as text). */
+    static ExpenseForm blank(LocalDate today, String category, String spentBy) {
+        return new ExpenseForm("", category, "", today.toString(), spentBy, UUID.randomUUID().toString());
     }
 
     ExpenseForm trimmed() {
-        return new ExpenseForm(clean(amount), clean(category), clean(merchant), clean(date), clean(clientRef));
+        return new ExpenseForm(clean(amount), clean(category), clean(merchant), clean(date), clean(spentBy),
+                clean(clientRef));
     }
 
     private static String clean(String value) {

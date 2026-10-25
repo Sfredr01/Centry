@@ -21,6 +21,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 class ExpenseFormMapper {
 
+    static final String UNKNOWN_SPENDER = "must be a household member";
+
     private final Validator validator;
     private final Clock clock;
 
@@ -48,12 +50,21 @@ class ExpenseFormMapper {
         // give a retried request a different timestamp and the service would reject it as a conflicting replay.
         // Any other date is recorded at the start of that day.
         LocalDateTime timestamp = date.equals(today()) ? null : date.atStartOfDay();
+        Long spentBy = null;
+        if (!form.spentBy().isEmpty()) {
+            try {
+                spentBy = Long.valueOf(form.spentBy());
+            } catch (NumberFormatException e) {
+                errors.put("spentBy", UNKNOWN_SPENDER);
+            }
+        }
         ExpenseEvent event = ExpenseEvent.builder()
                 .transactionId(form.clientRef().isEmpty() ? null : form.clientRef())
                 .merchant(form.merchant().isEmpty() ? form.category() : form.merchant())
                 .amount(amount)
                 .category(form.category())
                 .timestamp(timestamp)
+                .spentBy(spentBy)
                 .build();
         for (ConstraintViolation<ExpenseEvent> violation : validator.validate(event)) {
             errors.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage());
