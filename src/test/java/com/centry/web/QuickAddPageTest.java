@@ -1,0 +1,245 @@
+package com.centry.web;
+
+import com.centry.entity.ExpenseEntity;
+import com.centry.repository.BudgetRepository;
+import com.centry.repository.ExpenseRepository;
+import org.jsoup.nodes.Document;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+// "Now" is 15 March 2026, 10:00 UTC (FixedClockConfig).
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Import(FixedClockConfig.class)
+class QuickAddPageTest {
+
+    private static final String REF = "11111111-1111-4111-8111-111111111111";
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ExpenseRepository expenses;
+
+    @Autowired
+    private BudgetRepository budgets;
+
+    @Autowired
+    private JdbcClient jdbc;
+
+    @BeforeEach
+    void clean() {
+        expenses.deleteAll();
+        jdbc.sql("DELETE FROM budget").update();
+    }
+
+    private ResultActions getAdd(String url) throws Exception {
+        return mockMvc.perform(get(url).with(user("mom").roles("MEMBER")));
+    }
+
+    /** A valid submission; tests override single fields. */
+    private MockHttpServletRequestBuilder add(String amount, String category, String merchant, String date) {
+        return post("/add").with(user("mom").roles("MEMBER")).with(csrf())
+                .param("amount", amount).param("category", category).param("merchant", merchant)
+                .param("date", date).param("clientRef", REF);
+    }
+
+    private MockHttpServletRequestBuilder htmx(MockHttpServletRequestBuilder request) {
+        return request.header("HX-Request", "true");
+    }
+
+    private ExpenseEntity stored() {
+        return expenses.findByTransactionId(REF).orElseThrow();
+    }
+
+    private static void assertUuid(String value) {
+        assertThat(UUID.fromString(value)).hasToString(value);
+    }
+
+    @Test
+    void defaultsTodayFromClockAndHasClientRef() throws Exception {
+        Document page = Html.of(getAdd("/add").andExpect(status().isOk()));
+
+        assertThat(page.select("form[hx-post=/add][method=post][action=/add]")).hasSize(1);
+        var amount = page.selectFirst("input[name=amount]");
+        assertThat(amount.attr("inputmode")).isEqualTo("decimal");
+        assertThat(amount.hasAttr("autofocus")).isTrue();
+        assertThat(page.selectFirst("input[name=date]").attr("value")).isEqualTo("2026-03-15");
+        assertThat(page.selectFirst("input[name=merchant]").hasAttr("required")).isFalse();
+        String ref = page.selectFirst("input[type=hidden][name=clientRef]").attr("value");
+        assertUuid(ref);
+        // A new page load is a new expense: a different reference every time.
+        Document again = Html.of(getAdd("/add"));
+        assertThat(again.selectFirst("input[name=clientRef]").attr("value")).isNotEqualTo(ref);
+        assertThat(page.select("[role=status]")).isEmpty();
+    }
+
+    @Test
+    void listsKnownCategoriesInDatalist() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        for (String category : new String[] {"Dining", "dining", "Fuel", "FOOD"}) {
+            expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "m", BigDecimal.ONE, category,
+                    LocalDateTime.of(2026, 3, 1, 0, 0)));
+        }
+
+        Document page = Html.of(getAdd("/add"));
+
+        assertThat(page.selectFirst("input[name=category]").attr("list")).isEqualTo("categories");
+        // Budgets first, then recent categories newest first; one entry per normalized key.
+        assertThat(page.select("datalist#categories option").eachAttr("value"))
+                .containsExactly("food", "Fuel", "dining");
+    }
+
+    @Test
+    void htmxPostStoresExpenseAndReturnsFreshForm() throws Exception {
+        String html = mockMvc.perform(htmx(add("12.50", "Food", "Market", "2026-03-15")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Document panel = org.jsoup.Jsoup.parse(html);
+
+        // A fragment, not a whole page.
+        assertThat(html).doesNotContain("<nav").doesNotContain("<html");
+        assertThat(panel.select("#add-panel [role=status]").text()).contains("12.50").contains("Market");
+        assertThat(panel.select("#add-panel [role=alert]")).isEmpty();
+        // Fresh form: new reference, amount cleared, category kept.
+        String freshRef = panel.selectFirst("input[name=clientRef]").attr("value");
+        assertUuid(freshRef);
+        assertThat(freshRef).isNotEqualTo(REF);
+        assertThat(panel.selectFirst("input[name=amount]").attr("value")).isEmpty();
+        assertThat(panel.selectFirst("input[name=merchant]").attr("value")).isEmpty();
+        assertThat(panel.selectFirst("input[name=category]").attr("value")).isEqualTo("Food");
+        assertThat(panel.selectFirst("input[name=date]").attr("value")).isEqualTo("2026-03-15");
+
+        ExpenseEntity saved = stored();
+        assertThat(saved.amount()).isEqualByComparingTo("12.50");
+        assertThat(saved.category()).isEqualTo("Food");
+        assertThat(saved.merchant()).isEqualTo("Market");
+        // Today means the clock's time of day.
+        assertThat(saved.timestamp()).isEqualTo(LocalDateTime.of(2026, 3, 15, 10, 0));
+    }
+
+    @Test
+    void doubleSubmitSameClientRefStoresOneRow() throws Exception {
+        for (int tap = 0; tap < 2; tap++) {
+            mockMvc.perform(htmx(add("4.00", "Food", "Cafe", "2026-03-15"))).andExpect(status().isOk());
+        }
+
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM expense").query(Long.class).single()).isEqualTo(1L);
+    }
+
+    @Test
+    void blankMerchantDefaultsToCategory() throws Exception {
+        mockMvc.perform(htmx(add("4.00", "Food", "   ", "2026-03-15"))).andExpect(status().isOk());
+
+        assertThat(stored().merchant()).isEqualTo("Food");
+    }
+
+    @Test
+    void pastDateUsesStartOfDay() throws Exception {
+        mockMvc.perform(htmx(add("4.00", "Food", "Cafe", "2026-03-10"))).andExpect(status().isOk());
+
+        assertThat(stored().timestamp()).isEqualTo(LocalDateTime.of(2026, 3, 10, 0, 0));
+    }
+
+    @Test
+    void blankDateMeansToday() throws Exception {
+        mockMvc.perform(htmx(add("4.00", "Food", "Cafe", ""))).andExpect(status().isOk());
+
+        assertThat(stored().timestamp()).isEqualTo(LocalDateTime.of(2026, 3, 15, 10, 0));
+    }
+
+    @ParameterizedTest(name = "amount {0}")
+    @ValueSource(strings = {"0", "-5.00", "10.001", "abc", "", "1234567890.00"})
+    void invalidAmountRerendersWithInlineError(String amount) throws Exception {
+        String html = mockMvc.perform(htmx(add(amount, "Food", "Cafe", "2026-03-10")))
+                .andExpect(status().isUnprocessableContent()).andReturn().getResponse().getContentAsString();
+        Document panel = org.jsoup.Jsoup.parse(html);
+
+        assertThat(html).doesNotContain("<nav");
+        assertThat(panel.select("#add-panel form")).hasSize(1);
+        assertThat(panel.selectFirst("input[name=amount]").attr("aria-invalid")).isEqualTo("true");
+        assertThat(panel.select("#amount-error").text()).isNotBlank();
+        // What the user typed survives, and so does the reference (a retry is still the same expense).
+        assertThat(panel.selectFirst("input[name=amount]").attr("value")).isEqualTo(amount);
+        assertThat(panel.selectFirst("input[name=category]").attr("value")).isEqualTo("Food");
+        assertThat(panel.selectFirst("input[name=date]").attr("value")).isEqualTo("2026-03-10");
+        assertThat(panel.selectFirst("input[name=clientRef]").attr("value")).isEqualTo(REF);
+        assertThat(panel.select("[role=status]")).isEmpty();
+        assertThat(expenses.findByTransactionId(REF)).isEmpty();
+    }
+
+    @Test
+    void blankCategoryAndBadDateAreRejectedInline() throws Exception {
+        Document panel = Html.of(mockMvc.perform(htmx(add("5.00", " ", "", "not-a-date")))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(panel.select("#category-error").text()).isNotBlank();
+        assertThat(panel.select("#date-error").text()).isNotBlank();
+        assertThat(panel.selectFirst("input[name=category]").attr("aria-invalid")).isEqualTo("true");
+        assertThat(panel.selectFirst("input[name=date]").attr("aria-invalid")).isEqualTo("true");
+        assertThat(expenses.findByTransactionId(REF)).isEmpty();
+    }
+
+    @Test
+    void nonHtmxPostRedirectsWithSavedFlag() throws Exception {
+        mockMvc.perform(add("12.50", "Food", "Market", "2026-03-15"))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/add?saved"));
+
+        assertThat(stored().amount()).isEqualByComparingTo("12.50");
+        assertThat(Html.of(getAdd("/add?saved").andExpect(status().isOk())).select("[role=status]")).hasSize(1);
+    }
+
+    @Test
+    void nonHtmxInvalidPostRendersWholePageWithErrors() throws Exception {
+        Document page = Html.of(mockMvc.perform(add("0", "Food", "Cafe", "2026-03-15"))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("#amount-error").text()).isNotBlank();
+    }
+
+    @Test
+    void postWithoutClientRefStillStoresTheExpense() throws Exception {
+        mockMvc.perform(post("/add").with(user("mom").roles("MEMBER")).with(csrf()).header("HX-Request", "true")
+                        .param("amount", "3.00").param("category", "Food"))
+                .andExpect(status().isOk());
+
+        assertThat(expenses.findRecent(5)).singleElement().satisfies(saved -> {
+            assertThat(saved.merchant()).isEqualTo("Food");
+            assertUuid(saved.transactionId());
+        });
+    }
+
+    @Test
+    void postWithoutCsrf403() throws Exception {
+        mockMvc.perform(post("/add").with(user("mom").roles("MEMBER"))
+                        .param("amount", "5.00").param("category", "Food").param("clientRef", REF))
+                .andExpect(status().isForbidden());
+
+        assertThat(expenses.findByTransactionId(REF)).isEmpty();
+    }
+}

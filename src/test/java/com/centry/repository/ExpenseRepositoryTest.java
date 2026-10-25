@@ -77,6 +77,17 @@ class ExpenseRepositoryTest {
         assertThat(repository.findRecent(10)).hasSize(4);
     }
 
+    @Test
+    void recentCategoriesAreDistinctByKeyNewestFirstAndKeepLatestSpelling() {
+        repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.00"), "Dining", TS));
+        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("1.00"), "dining ", TS));
+        repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("1.00"), "Fuel", TS));
+        repository.save(new ExpenseEntity(null, "4", "m", new BigDecimal("1.00"), "Gifts", TS));
+
+        assertThat(repository.recentCategories(10)).containsExactly("Gifts", "Fuel", "dining ");
+        assertThat(repository.recentCategories(2)).containsExactly("Gifts", "Fuel");
+    }
+
     private ExpenseEntity at(String id, LocalDateTime when) {
         return new ExpenseEntity(null, id, "m", new BigDecimal("1.00"), "dining", when);
     }

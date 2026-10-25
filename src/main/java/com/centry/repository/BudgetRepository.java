@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Repository
 public class BudgetRepository {
@@ -23,6 +24,11 @@ public class BudgetRepository {
                             warn_pct = excluded.warn_pct""")
                 .params(categoryKey, Cents.toCents(monthlyLimit), warnPercent)
                 .update();
+    }
+
+    /** Normalized keys of all budgets, sorted. */
+    public List<String> categoryKeys() {
+        return jdbc.sql("SELECT category_key FROM budget ORDER BY category_key").query(String.class).list();
     }
 
     /** @return true if a budget existed and was removed */

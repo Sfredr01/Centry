@@ -61,6 +61,15 @@ public class ExpenseRepository {
                 .query(ExpenseRepository::map).list();
     }
 
+    /** Categories already used, one per normalized key (see {@code Keys.of}) in the latest spelling, newest first. */
+    public List<String> recentCategories(int limit) {
+        return jdbc.sql("""
+                        SELECT category FROM expense
+                         WHERE id IN (SELECT MAX(id) FROM expense GROUP BY lower(trim(category)))
+                         ORDER BY id DESC LIMIT ?""")
+                .param(limit).query(String.class).list();
+    }
+
     public Optional<ExpenseEntity> findById(long id) {
         return jdbc.sql(SELECT + " WHERE id = ?").param(id).query(ExpenseRepository::map).optional();
     }
