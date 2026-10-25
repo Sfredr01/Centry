@@ -1,5 +1,13 @@
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        # Secure is off by default because plain-HTTP LAN use is common. Behind HTTPS (Tailscale, Caddy) set
+        # SERVER_SERVLET_SESSION_COOKIE_SECURE=true. The first admin comes from CENTRY_ADMIN_PASSWORD
+        # (centry.admin.password, at least 12 characters); CENTRY_ADMIN_USERNAME is optional (default admin).
 
 spring:
   application:
@@ -17,14 +25,18 @@ spring:
         busy_timeout: 5000
         foreign_keys: true
 
+# Only the public liveness probe is exposed; everything else (metrics, prometheus, info) is off.
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics,prometheus"
+        include: "health"
   endpoint:
     health:
-      show-details: always
+      show-details: never
+      # Probe groups would add a "groups" array to /actuator/health; the Docker healthcheck only needs the status.
+      probes:
+        enabled: false
 
 ---
 # Kafka is opt-in: without the "kafka" profile its auto-configuration is excluded,

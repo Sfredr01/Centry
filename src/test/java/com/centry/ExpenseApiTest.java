@@ -1,5 +1,6 @@
 package com.centry;
 
+import org.springframework.context.annotation.Import;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.ExpenseRepository;
@@ -44,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(AdminBasicAuth.class)
 class ExpenseApiTest {
 
     private static final List<String> webhookBodies = new CopyOnWriteArrayList<>();

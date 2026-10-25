@@ -1,5 +1,7 @@
 package com.centry.controller;
 
+import com.centry.AdminBasicAuth;
+import org.springframework.context.annotation.Import;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.ExpenseRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(AdminBasicAuth.class)
 class BudgetApiTest {
 
     // "Now" is March 2026 for every request in this class.

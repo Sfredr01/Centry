@@ -1,5 +1,6 @@
 package com.centry.controller;
 
+import com.centry.repository.UsernameTakenException;
 import com.centry.service.ExpenseConflictException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleConflict(ExpenseConflictException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflicting expense");
+        return problem;
+    }
+
+    @ExceptionHandler(UsernameTakenException.class)
+    ProblemDetail handleUsernameTaken(UsernameTakenException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Username taken");
         return problem;
     }
 

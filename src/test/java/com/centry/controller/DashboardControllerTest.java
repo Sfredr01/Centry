@@ -1,5 +1,6 @@
 package com.centry.controller;
 
+import org.springframework.security.test.context.support.WithMockUser;
 import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.ExpenseEntity;
 import com.centry.entity.SubscriptionAlertEntity;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DashboardController.class)
+@WithMockUser
 class DashboardControllerTest {
 
     @Autowired

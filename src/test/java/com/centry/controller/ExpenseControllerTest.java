@@ -1,5 +1,7 @@
 package com.centry.controller;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import org.springframework.security.test.context.support.WithMockUser;
 import com.centry.dto.ExpenseEvent;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.ExpenseRepository;
@@ -27,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ExpenseController.class)
+@WithMockUser
 class ExpenseControllerTest {
 
     @Autowired
@@ -58,7 +61,7 @@ class ExpenseControllerTest {
                 .build();
         when(expenseService.record(any())).thenReturn(new Recorded(stored(event), true));
 
-        mockMvc.perform(post("/api/v1/expenses")
+        mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(event)))
                 .andExpect(status().isCreated())
@@ -82,7 +85,7 @@ class ExpenseControllerTest {
                 LocalDateTime.of(2026, 3, 4, 5, 6, 7));
         when(expenseService.record(any())).thenReturn(new Recorded(existing, false));
 
-        mockMvc.perform(post("/api/v1/expenses")
+        mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"transactionId\":\"tx-1\",\"merchant\":\"Coffee Shop\",\"amount\":1,\"category\":\"dining\"}"))
                 .andExpect(status().isOk())
@@ -96,7 +99,7 @@ class ExpenseControllerTest {
         when(expenseService.record(any())).thenReturn(new Recorded(
                 new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now()), true));
 
-        mockMvc.perform(post("/api/v1/expenses")
+        mockMvc.perform(post("/api/v1/expenses").with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"merchant\":\"Coffee Shop\",\"amount\":4.50,\"category\":\"dining\"}"))
                 .andExpect(status().isCreated());
