@@ -1,8 +1,8 @@
 package com.centry.model;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -15,9 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BudgetAlertEventTest {
 
-    private final ObjectMapper mapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper mapper = JsonMapper.builder()
+            .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build();
 
     private BudgetAlertEvent sample() {
         return new BudgetAlertEvent("food", new BigDecimal("120.50"), new BigDecimal("100.00"),
