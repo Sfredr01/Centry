@@ -4,6 +4,8 @@ import com.centry.entity.ExpenseEntity;
 import com.centry.model.BudgetLevel;
 import com.centry.model.BudgetStatus;
 import com.centry.model.Keys;
+import com.centry.model.Role;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,10 +38,15 @@ class BudgetStatusQueryTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private UserRepository users;
+
     @BeforeEach
+    @AfterEach
     void clean() {
         expenses.deleteAll();
         jdbc.sql("DELETE FROM budget").update();
+        jdbc.sql("DELETE FROM users WHERE username LIKE 'bsq-%'").update();
     }
 
     private void spend(String category, String amount, LocalDateTime at) {
@@ -152,5 +159,26 @@ class BudgetStatusQueryTest {
         spend("tiny", "0.01", LocalDateTime.of(2026, 3, 10, 12, 0));
 
         assertThat(status("tiny", MARCH).level()).isEqualTo(BudgetLevel.LIMIT_EXCEEDED);
+    }
+
+    @Test
+    void filtersByMember() {
+        long ann = users.insert("bsq-ann", "Ann", null, Role.MEMBER, LocalDateTime.of(2026, 1, 1, 0, 0)).id();
+        long bob = users.insert("bsq-bob", "Bob", null, Role.MEMBER, LocalDateTime.of(2026, 1, 1, 0, 0)).id();
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        LocalDateTime at = LocalDateTime.of(2026, 3, 10, 12, 0);
+        expenses.save(new ExpenseEntity(null, "a1", "Shop", new BigDecimal("10.00"), "food", at, ann, null));
+        expenses.save(new ExpenseEntity(null, "b1", "Shop", new BigDecimal("30.00"), "food", at, bob, null));
+        // Unattributed spend belongs to nobody's filter, only to Everyone.
+        expenses.save(new ExpenseEntity(null, "n1", "Shop", new BigDecimal("5.00"), "food", at, null, null));
+
+        BudgetStatus annOnly = query.all(MARCH, ann).get(0);
+
+        assertThat(annOnly.spent()).isEqualByComparingTo("10.00");
+        // The limit is the household's, whoever is selected.
+        assertThat(annOnly.monthlyLimit()).isEqualByComparingTo("100.00");
+        assertThat(query.all(MARCH, bob).get(0).spent()).isEqualByComparingTo("30.00");
+        assertThat(query.all(MARCH, null).get(0).spent()).isEqualByComparingTo("45.00");
+        assertThat(query.all(MARCH).get(0).spent()).isEqualByComparingTo("45.00");
     }
 }
