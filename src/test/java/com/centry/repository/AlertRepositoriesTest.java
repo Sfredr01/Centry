@@ -2,7 +2,7 @@ package com.centry.repository;
 
 import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.SubscriptionAlertEntity;
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +58,7 @@ class AlertRepositoriesTest {
     @Test
     void budgetAlertRoundTripsAllFieldsAndNulls() {
         BudgetAlertEntity full = new BudgetAlertEntity(null, "dining", new BigDecimal("105.05"),
-                new BigDecimal("100.00"), new BigDecimal("80.00"), BudgetStatus.Status.LIMIT_EXCEEDED, "over", BASE);
+                new BigDecimal("100.00"), new BigDecimal("80.00"), BudgetLevel.LIMIT_EXCEEDED, "over", BASE);
         BudgetAlertEntity saved = budgetRepository.save(full);
 
         assertThat(saved.id()).isNotNull();

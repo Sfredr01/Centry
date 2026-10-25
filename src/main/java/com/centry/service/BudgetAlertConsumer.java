@@ -2,7 +2,7 @@ package com.centry.service;
 
 import com.centry.config.BudgetConfigProperties;
 import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -32,7 +32,7 @@ public class BudgetAlertConsumer {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleBudgetAlert(BudgetAlertEvent alert) {
-        if (alert.getAlertLevel() == BudgetStatus.Status.LIMIT_EXCEEDED) {
+        if (alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED) {
             log.error("🚨 CRITICAL BUDGET ALERT: Category [{}] - Total spend: ${} (Limit: ${}). Message: {}",
                     alert.getCategory(), alert.getCurrentSpend(), alert.getMonthlyLimit(), alert.getMessage());
         } else {
@@ -54,7 +54,7 @@ public class BudgetAlertConsumer {
         try {
             // Discord & Slack both support simple JSON payload with a "content" or "text" field
             String formattedMessage = String.format("%s **%s**: %s",
-                    alert.getAlertLevel() == BudgetStatus.Status.LIMIT_EXCEEDED ? "🚨" : "⚠️",
+                    alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED ? "🚨" : "⚠️",
                     alert.getAlertLevel(),
                     alert.getMessage());
 

@@ -1,13 +1,9 @@
 package com.centry.service;
 
-import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.ExpenseEntity;
 import com.centry.entity.SubscriptionAlertEntity;
-import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetStatus;
 import com.centry.model.SubscriptionAlertEvent;
 import com.centry.dto.ExpenseEvent;
-import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
 import io.micrometer.core.instrument.Counter;
@@ -31,11 +27,10 @@ public class ExpenseService {
 
     private static final Logger log = LoggerFactory.getLogger(ExpenseService.class);
 
-    private final BudgetTrackingService budgetTrackingService;
+    private final BudgetAlertPolicy budgetAlertPolicy;
     private final SubscriptionTrackingService subscriptionTrackingService;
     private final ApplicationEventPublisher events;
     private final ExpenseRepository expenseRepository;
-    private final BudgetAlertRepository budgetAlertRepository;
     private final SubscriptionAlertRepository subscriptionAlertRepository;
 
     private final Clock clock;
@@ -45,19 +40,17 @@ public class ExpenseService {
     private final Counter subscriptionAlertsCounter;
     private final Timer expenseProcessingTimer;
 
-    public ExpenseService(BudgetTrackingService budgetTrackingService,
+    public ExpenseService(BudgetAlertPolicy budgetAlertPolicy,
                            SubscriptionTrackingService subscriptionTrackingService,
                            ApplicationEventPublisher events,
                            ExpenseRepository expenseRepository,
-                           BudgetAlertRepository budgetAlertRepository,
                            SubscriptionAlertRepository subscriptionAlertRepository,
                            MeterRegistry meterRegistry,
                            Clock clock) {
-        this.budgetTrackingService = budgetTrackingService;
+        this.budgetAlertPolicy = budgetAlertPolicy;
         this.subscriptionTrackingService = subscriptionTrackingService;
         this.events = events;
         this.expenseRepository = expenseRepository;
-        this.budgetAlertRepository = budgetAlertRepository;
         this.subscriptionAlertRepository = subscriptionAlertRepository;
         this.clock = clock;
 
@@ -77,9 +70,6 @@ public class ExpenseService {
      * <p>{@code transactionId} is the idempotency key: replaying an identical expense returns the stored one
      * untouched, replaying it with a different payload is a conflict. The expense and its alert rows commit
      * or roll back together, and alert events only reach their listeners after the commit.
-     *
-     * <p>Known limitation (removed in M5): the in-memory budget and subscription state is not rolled back
-     * when the transaction is.
      */
     @Transactional
     public Recorded record(ExpenseEvent event) {
@@ -109,35 +99,11 @@ public class ExpenseService {
             log.info("Recorded expense: merchant='{}', amount=${}, category='{}'",
                     event.getMerchant(), event.getAmount(), event.getCategory());
 
-            // 2. Update in-memory budget state
-            BudgetStatus status = budgetTrackingService.recordExpense(event.getCategory(), event.getAmount(), txTime);
-
-            if (status != null && status.getStatus() != BudgetStatus.Status.OK) {
+            // 2. Budget check: derived from the stored expenses, deduplicated per category, month and level.
+            budgetAlertPolicy.evaluate(event.getCategory(), txTime).ifPresent(alert -> {
                 budgetAlertsCounter.increment();
-                String msg = String.format("Budget alert for [%s]: Current spend $%.2f exceeds %s of $%.2f",
-                        status.getCategory(),
-                        status.getCurrentSpend(),
-                        status.getStatus() == BudgetStatus.Status.LIMIT_EXCEEDED ? "monthly limit" : "warning threshold",
-                        status.getStatus() == BudgetStatus.Status.LIMIT_EXCEEDED ? status.getMonthlyLimit() : status.getWarningAmount());
-
-                BudgetAlertEvent alertEvent = new BudgetAlertEvent(
-                        status.getCategory(),
-                        status.getCurrentSpend(),
-                        status.getMonthlyLimit(),
-                        status.getWarningAmount(),
-                        status.getStatus(),
-                        msg
-                );
-
-                log.warn("Triggering Budget Alert: {}", msg);
-
-                // Persist budget alert
-                budgetAlertRepository.save(new BudgetAlertEntity(null, status.getCategory(),
-                        status.getCurrentSpend(), status.getMonthlyLimit(), status.getWarningAmount(),
-                        status.getStatus(), msg, LocalDateTime.now(clock)));
-
-                events.publishEvent(alertEvent);
-            }
+                events.publishEvent(alert);
+            });
 
             // 3. Process subscription and anomaly detection
             SubscriptionAlertEvent subscriptionAlert = subscriptionTrackingService.processAndCheckSubscription(

@@ -9,7 +9,7 @@ public class BudgetAlertEvent {
     private BigDecimal currentSpend;
     private BigDecimal monthlyLimit;
     private BigDecimal warningThreshold;
-    private BudgetStatus.Status alertLevel; // WARNING_EXCEEDED or LIMIT_EXCEEDED
+    private BudgetLevel alertLevel; // WARNING_EXCEEDED or LIMIT_EXCEEDED
     private String message;
     private Instant timestamp;
 
@@ -18,7 +18,7 @@ public class BudgetAlertEvent {
     }
 
     public BudgetAlertEvent(String category, BigDecimal currentSpend, BigDecimal monthlyLimit, 
-                            BigDecimal warningThreshold, BudgetStatus.Status alertLevel, String message) {
+                            BigDecimal warningThreshold, BudgetLevel alertLevel, String message) {
         this.category = category;
         this.currentSpend = currentSpend;
         this.monthlyLimit = monthlyLimit;
@@ -41,8 +41,8 @@ public class BudgetAlertEvent {
     public BigDecimal getWarningThreshold() { return warningThreshold; }
     public void setWarningThreshold(BigDecimal warningThreshold) { this.warningThreshold = warningThreshold; }
 
-    public BudgetStatus.Status getAlertLevel() { return alertLevel; }
-    public void setAlertLevel(BudgetStatus.Status alertLevel) { this.alertLevel = alertLevel; }
+    public BudgetLevel getAlertLevel() { return alertLevel; }
+    public void setAlertLevel(BudgetLevel alertLevel) { this.alertLevel = alertLevel; }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }

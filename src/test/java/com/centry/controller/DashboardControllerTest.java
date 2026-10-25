@@ -3,7 +3,7 @@ package com.centry.controller;
 import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.ExpenseEntity;
 import com.centry.entity.SubscriptionAlertEntity;
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
@@ -87,7 +87,7 @@ class DashboardControllerTest {
     void budgetAlertsReturnsRepositoryResults() throws Exception {
         when(budgetAlertRepository.findTop50ByOrderByTimestampDesc()).thenReturn(List.of(
                 new BudgetAlertEntity(2L, "dining", new BigDecimal("105.00"), new BigDecimal("100.00"),
-                        new BigDecimal("80.00"), BudgetStatus.Status.LIMIT_EXCEEDED, "over", null)));
+                        new BigDecimal("80.00"), BudgetLevel.LIMIT_EXCEEDED, "over", null)));
 
         mockMvc.perform(get("/api/v1/dashboard/alerts/budget"))
                 .andExpect(status().isOk())
