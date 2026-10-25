@@ -2,15 +2,24 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.3.4'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
 }
 
 group = 'com.centry'
 version = '0.0.1-SNAPSHOT'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(23)
-    }
+// Target the Java 21 LTS runtime image; builds on any installed JDK >= 21.
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+// One executable jar with a fixed name, so the Dockerfile COPY is unambiguous.
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'centry.jar'
 }
 
 repositories {
@@ -37,4 +46,47 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy 'jacocoTestReport'
+}
+
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+// CentryApplication only hands off to SpringApplication.run; wiring is covered by CentryApplicationTests.
+def coverageExclusions = ['com/centry/CentryApplication.class']
+
+tasks.named('jacocoTestReport') {
+    dependsOn 'test'
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: coverageExclusions)
+    }))
+}
+
+// Full line and branch coverage is a merge gate (./gradlew check).
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn 'test'
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: coverageExclusions)
+    }))
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                minimum = 1.0
+            }
+            limit {
+                counter = 'BRANCH'
+                minimum = 1.0
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'jacocoTestCoverageVerification'
 }

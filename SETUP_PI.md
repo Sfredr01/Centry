@@ -230,11 +230,11 @@ docker load -i /opt/centry/centry-arm64.tar
 ```
 
 ### Option B: Production Multi-Stage `Dockerfile`
-If building directly on the Raspberry Pi or via CI/CD, use this lean multi-stage Eclipse Temurin Java 23 Alpine/Debian Dockerfile:
+If building directly on the Raspberry Pi or via CI/CD, use this lean multi-stage Eclipse Temurin Java 21 Dockerfile:
 
 ```dockerfile
 # Stage 1: Build the application with Gradle
-FROM eclipse-temurin:23-jdk-jammy AS builder
+FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 COPY gradlew build.gradle settings.gradle ./
 COPY gradle gradle
@@ -242,10 +242,10 @@ COPY src src
 RUN ./gradlew bootJar -x test
 
 # Stage 2: Runtime image using lightweight JRE
-FROM eclipse-temurin:23-jre-jammy
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder /app/build/libs/centry.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
