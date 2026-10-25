@@ -1,7 +1,7 @@
 package com.centry.controller;
 
 import com.centry.dto.ExpenseEvent;
-import com.centry.service.ExpenseProducer;
+import com.centry.service.ExpenseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ExpenseController {
 
-    private final ExpenseProducer expenseProducer;
+    private final ExpenseService expenseService;
 
     @PostMapping
     public ResponseEntity<String> createExpense(@RequestBody ExpenseEvent expense) {
@@ -26,7 +26,7 @@ public class ExpenseController {
             expense.setTimestamp(LocalDateTime.now());
         }
 
-        expenseProducer.sendExpense(expense);
-        return ResponseEntity.ok("Expense event accepted and published to Kafka.");
+        expenseService.record(expense);
+        return ResponseEntity.ok("Expense recorded.");
     }
 }

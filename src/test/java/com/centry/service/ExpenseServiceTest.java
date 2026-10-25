@@ -17,7 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,24 +31,24 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ExpenseConsumerTest {
+class ExpenseServiceTest {
 
     private static final LocalDateTime TX_TIME = LocalDateTime.of(2025, 3, 4, 5, 6, 7);
 
     @Mock private BudgetTrackingService budgetTrackingService;
     @Mock private SubscriptionTrackingService subscriptionTrackingService;
-    @Mock private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private ApplicationEventPublisher events;
     @Mock private ExpenseRepository expenseRepository;
     @Mock private BudgetAlertRepository budgetAlertRepository;
     @Mock private SubscriptionAlertRepository subscriptionAlertRepository;
 
     private SimpleMeterRegistry registry;
-    private ExpenseConsumer consumer;
+    private ExpenseService service;
 
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        consumer = new ExpenseConsumer(budgetTrackingService, subscriptionTrackingService, kafkaTemplate,
+        service = new ExpenseService(budgetTrackingService, subscriptionTrackingService, events,
                 expenseRepository, budgetAlertRepository, subscriptionAlertRepository, registry);
     }
 
@@ -75,7 +75,7 @@ class ExpenseConsumerTest {
 
     @Test
     void persistsExpenseWithEventTimestampAndSendsNoAlertsWhenNothingTriggers() {
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
         ExpenseEntity e = savedExpense();
         assertThat(e.getTransactionId()).isEqualTo("tx-1");
@@ -84,7 +84,7 @@ class ExpenseConsumerTest {
         assertThat(e.getCategory()).isEqualTo("Entertainment");
         assertThat(e.getTimestamp()).isEqualTo(TX_TIME);
         verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME);
-        verifyNoInteractions(budgetAlertRepository, subscriptionAlertRepository, kafkaTemplate);
+        verifyNoInteractions(budgetAlertRepository, subscriptionAlertRepository, events);
         assertThat(count("centry.expenses.consumed")).isEqualTo(1.0);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
         assertThat(count("centry.subscription.alerts.emitted")).isZero();
@@ -95,7 +95,7 @@ class ExpenseConsumerTest {
     void nullTimestampDefaultsToNowForEntityAndSubscriptionCheck() {
         LocalDateTime before = LocalDateTime.now();
 
-        consumer.consumeRawExpense(event(null));
+        service.record(event(null));
 
         LocalDateTime after = LocalDateTime.now();
         ExpenseEntity e = savedExpense();
@@ -110,9 +110,9 @@ class ExpenseConsumerTest {
         when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99")))
                 .thenReturn(status(BudgetStatus.Status.OK));
 
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
-        verifyNoInteractions(budgetAlertRepository, kafkaTemplate);
+        verifyNoInteractions(budgetAlertRepository, events);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
     }
 
@@ -122,7 +122,7 @@ class ExpenseConsumerTest {
                 .thenReturn(status(BudgetStatus.Status.WARNING_EXCEEDED));
         LocalDateTime before = LocalDateTime.now();
 
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
         String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds warning threshold of $80.00";
         ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
@@ -137,7 +137,7 @@ class ExpenseConsumerTest {
         assertThat(a.getTimestamp()).isBetween(before, LocalDateTime.now());
 
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(eq("budget-alerts"), eq("Entertainment"), payload.capture());
+        verify(events).publishEvent(payload.capture());
         BudgetAlertEvent ev = (BudgetAlertEvent) payload.getValue();
         assertThat(ev.getMessage()).isEqualTo(expectedMsg);
         assertThat(ev.getAlertLevel()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
@@ -151,7 +151,7 @@ class ExpenseConsumerTest {
         when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99")))
                 .thenReturn(status(BudgetStatus.Status.LIMIT_EXCEEDED));
 
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
         String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds monthly limit of $100.00";
         ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
@@ -159,7 +159,7 @@ class ExpenseConsumerTest {
         assertThat(saved.getValue().getMessage()).isEqualTo(expectedMsg);
         assertThat(saved.getValue().getStatus()).isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(eq("budget-alerts"), eq("Entertainment"), payload.capture());
+        verify(events).publishEvent(payload.capture());
         assertThat(((BudgetAlertEvent) payload.getValue()).getAlertLevel())
                 .isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
         assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
@@ -177,7 +177,7 @@ class ExpenseConsumerTest {
         when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
                 .thenReturn(alert);
 
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
@@ -188,7 +188,7 @@ class ExpenseConsumerTest {
         assertThat(s.getAnomalyType()).isEqualTo("PRICE_INCREASE");
         assertThat(s.getMessage()).isEqualTo("Price went up");
         assertThat(s.getTimestamp()).isEqualTo(TX_TIME);
-        verify(kafkaTemplate).send("subscription-alerts", "Netflix", alert);
+        verify(events).publishEvent((Object) alert);
         verify(budgetAlertRepository, never()).save(any());
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }
@@ -200,12 +200,12 @@ class ExpenseConsumerTest {
                 .thenReturn(alert);
         LocalDateTime before = LocalDateTime.now();
 
-        consumer.consumeRawExpense(event(TX_TIME));
+        service.record(event(TX_TIME));
 
         ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
         verify(subscriptionAlertRepository).save(saved.capture());
         assertThat(saved.getValue().getTimestamp()).isBetween(before, LocalDateTime.now());
-        verify(kafkaTemplate).send("subscription-alerts", "Netflix", alert);
+        verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }
 }

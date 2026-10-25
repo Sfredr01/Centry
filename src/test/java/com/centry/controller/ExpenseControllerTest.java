@@ -1,7 +1,7 @@
 package com.centry.controller;
 
 import com.centry.dto.ExpenseEvent;
-import com.centry.service.ExpenseProducer;
+import com.centry.service.ExpenseService;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ExpenseController.class)
 class ExpenseControllerTest {
 
-    private static final String ACCEPTED = "Expense event accepted and published to Kafka.";
+    private static final String ACCEPTED = "Expense recorded.";
 
     @Autowired
     private MockMvc mockMvc;
@@ -33,7 +33,7 @@ class ExpenseControllerTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private ExpenseProducer expenseProducer;
+    private ExpenseService expenseService;
 
     @Test
     void testCreateExpenseEndpoint() throws Exception {
@@ -53,7 +53,7 @@ class ExpenseControllerTest {
                 .andExpect(content().string(ACCEPTED));
 
         ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
-        verify(expenseProducer).sendExpense(captor.capture());
+        verify(expenseService).record(captor.capture());
         ExpenseEvent sent = captor.getValue();
         assertThat(sent.getTransactionId()).isEqualTo("tx-123");
         assertThat(sent.getTimestamp()).isEqualTo(timestamp);
@@ -73,7 +73,7 @@ class ExpenseControllerTest {
                 .andExpect(content().string(ACCEPTED));
 
         ArgumentCaptor<ExpenseEvent> captor = ArgumentCaptor.forClass(ExpenseEvent.class);
-        verify(expenseProducer).sendExpense(captor.capture());
+        verify(expenseService).record(captor.capture());
         ExpenseEvent sent = captor.getValue();
         assertThat(sent.getTransactionId()).isNotNull();
         assertThat(UUID.fromString(sent.getTransactionId()).toString()).isEqualTo(sent.getTransactionId());

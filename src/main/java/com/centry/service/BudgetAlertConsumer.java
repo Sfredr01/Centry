@@ -1,13 +1,13 @@
 package com.centry.service;
 
 import com.centry.config.BudgetConfigProperties;
-import com.centry.config.KafkaTopicConfig;
 import com.centry.model.BudgetAlertEvent;
 import com.centry.model.BudgetStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
-import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -26,7 +26,9 @@ public class BudgetAlertConsumer {
         this.restClient = RestClient.create();
     }
 
-    @KafkaListener(topics = KafkaTopicConfig.BUDGET_ALERTS_TOPIC, groupId = "centry-alert-group")
+    // Async keeps the outbound webhook call off the request thread.
+    @Async
+    @EventListener
     public void handleBudgetAlert(BudgetAlertEvent alert) {
         if (alert.getAlertLevel() == BudgetStatus.Status.LIMIT_EXCEEDED) {
             log.error("🚨 CRITICAL BUDGET ALERT: Category [{}] - Total spend: ${} (Limit: ${}). Message: {}",
