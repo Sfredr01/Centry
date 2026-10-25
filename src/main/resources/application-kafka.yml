@@ -4,16 +4,20 @@ spring:
     # Points to your Dockerized Kafka broker running on port 9092
     bootstrap-servers: localhost:9092
 
-    # Producer Settings (HTTP -> Kafka)
+    # Producer Settings (budget alerts -> budget-alerts topic)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
-    # Consumer Settings (Kafka -> Spring Boot Listener)
+    # Consumer Settings (raw-expenses -> ExpenseService). External producers send plain JSON
+    # without type headers; undeserializable records are handed to the error handler (DLT).
     consumer:
       group-id: centry-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.value.default.type: com.centry.dto.ExpenseEvent
+        spring.json.use.type.headers: false
         spring.json.trusted.packages: "com.centry.*"
