@@ -5,7 +5,6 @@ import com.centry.repository.ExpenseRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
@@ -23,12 +22,16 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -72,6 +75,16 @@ class KafkaProfileIngestTest {
         return consumer;
     }
 
+    // The DLT is shared by every test in this class, so look for this test's record among all of them.
+    private static List<String> awaitDltRecord(Consumer<String, String> dlt, Predicate<String> mine) {
+        List<String> seen = new ArrayList<>();
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
+            dlt.poll(Duration.ofMillis(200)).forEach(r -> seen.add(r.value()));
+            assertThat(seen).anyMatch(mine);
+        });
+        return seen;
+    }
+
     @Test
     void messageIsRecorded() {
         String tx = "tx-" + UUID.randomUUID();
@@ -79,8 +92,8 @@ class KafkaProfileIngestTest {
                 + "\",\"merchant\":\"Cafe\",\"amount\":4.50,\"category\":\"misc\"}");
 
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
-            ExpenseEntity row = expenseRepository.findAll().stream()
-                    .filter(e -> tx.equals(e.transactionId())).findFirst().orElseThrow();
+            ExpenseEntity row = expenseRepository.findByTransactionId(tx).orElse(null);
+            assertThat(row).isNotNull();
             assertThat(row.merchant()).isEqualTo("Cafe");
             assertThat(row.amount()).isEqualByComparingTo("4.50");
             assertThat(row.category()).isEqualTo("misc");
@@ -101,18 +114,47 @@ class KafkaProfileIngestTest {
     }
 
     @Test
+    void invalidMessageGoesToDltWithoutRetry() throws Exception {
+        String tx = "tx-invalid-" + UUID.randomUUID();
+        String invalid = "{\"transactionId\":\"" + tx + "\",\"merchant\":\"Cafe\",\"amount\":-5,\"category\":\"misc\"}";
+        try (Consumer<String, String> dlt = consumerOf("raw-expenses.DLT")) {
+            send("Invalid", invalid);
+
+            List<String> seen = awaitDltRecord(dlt, v -> v.contains(tx));
+            // Not retryable: the listener body never ran, nothing was stored, no second DLT copy follows.
+            verify(listener, never()).onMessage(argThat(e -> e != null && tx.equals(e.getTransactionId())));
+            assertThat(expenseRepository.findByTransactionId(tx)).isEmpty();
+            dlt.poll(Duration.ofSeconds(3)).forEach(r -> seen.add(r.value()));
+            assertThat(seen).filteredOn(v -> v.contains(tx)).hasSize(1);
+        }
+    }
+
+    @Test
+    void redeliveredMessageIsNotDuplicated() {
+        String tx = "tx-redelivered-" + UUID.randomUUID();
+        String sentinel = "tx-sentinel-" + UUID.randomUUID();
+        String json = "{\"transactionId\":\"%s\",\"merchant\":\"Cafe\",\"amount\":4.50,\"category\":\"misc\"}";
+        send("Cafe", json.formatted(tx));
+        send("Cafe", json.formatted(tx));
+        // One partition keeps order, so once the sentinel is stored the duplicate has been handled too.
+        send("Cafe", json.formatted(sentinel));
+
+        await().atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> assertThat(expenseRepository.findByTransactionId(sentinel)).isPresent());
+        assertThat(expenseRepository.findAll()).filteredOn(e -> tx.equals(e.transactionId())).hasSize(1);
+    }
+
+    @Test
     void malformedJsonGoesToDltWithoutRetry() throws Exception {
         String poison = "{not json";
         try (Consumer<String, String> dlt = consumerOf("raw-expenses.DLT")) {
             send("Poison", poison);
 
-            ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(
-                    dlt, "raw-expenses.DLT", Duration.ofSeconds(20));
-            assertThat(record.value()).isEqualTo(poison);
+            List<String> seen = awaitDltRecord(dlt, poison::equals);
             // Not retryable: the listener never ran and no second copy shows up after the backoff window.
             verify(listener, never()).onMessage(any());
-            ConsumerRecords<String, String> more = dlt.poll(Duration.ofSeconds(3));
-            assertThat(more.count()).isZero();
+            dlt.poll(Duration.ofSeconds(3)).forEach(r -> seen.add(r.value()));
+            assertThat(seen).filteredOn(poison::equals).hasSize(1);
         }
     }
 }
