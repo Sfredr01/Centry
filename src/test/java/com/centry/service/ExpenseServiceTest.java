@@ -1,13 +1,11 @@
 package com.centry.service;
 
 import com.centry.dto.ExpenseEvent;
-import com.centry.entity.BudgetAlertEntity;
 import com.centry.entity.ExpenseEntity;
 import com.centry.entity.SubscriptionAlertEntity;
 import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 import com.centry.model.SubscriptionAlertEvent;
-import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -48,11 +46,10 @@ class ExpenseServiceTest {
     private static final LocalDateTime CLOCK_NOW = LocalDateTime.of(2025, 11, 15, 10, 0, 0);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2025-11-15T10:00:00Z"), ZoneOffset.UTC);
 
-    @Mock private BudgetTrackingService budgetTrackingService;
+    @Mock private BudgetAlertPolicy budgetAlertPolicy;
     @Mock private SubscriptionTrackingService subscriptionTrackingService;
     @Mock private ApplicationEventPublisher events;
     @Mock private ExpenseRepository expenseRepository;
-    @Mock private BudgetAlertRepository budgetAlertRepository;
     @Mock private SubscriptionAlertRepository subscriptionAlertRepository;
 
     private SimpleMeterRegistry registry;
@@ -61,8 +58,8 @@ class ExpenseServiceTest {
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        service = new ExpenseService(budgetTrackingService, subscriptionTrackingService, events,
-                expenseRepository, budgetAlertRepository, subscriptionAlertRepository, registry, CLOCK);
+        service = new ExpenseService(budgetAlertPolicy, subscriptionTrackingService, events,
+                expenseRepository, subscriptionAlertRepository, registry, CLOCK);
     }
 
     private ExpenseEvent event(LocalDateTime ts) {
@@ -81,9 +78,9 @@ class ExpenseServiceTest {
         return c.getValue();
     }
 
-    private BudgetStatus status(BudgetStatus.Status s) {
-        return new BudgetStatus("Entertainment", new BigDecimal("120.00"), new BigDecimal("100.00"),
-                new BigDecimal("80.00"), s);
+    private BudgetAlertEvent alertEvent(BudgetLevel level) {
+        return new BudgetAlertEvent("entertainment", new BigDecimal("120.00"), new BigDecimal("100.00"),
+                new BigDecimal("80.00"), level, "over");
     }
 
     @Test
@@ -96,8 +93,8 @@ class ExpenseServiceTest {
         assertThat(e.amount()).isEqualByComparingTo("15.99");
         assertThat(e.category()).isEqualTo("Entertainment");
         assertThat(e.timestamp()).isEqualTo(TX_TIME);
-        verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME);
-        verifyNoInteractions(budgetAlertRepository, subscriptionAlertRepository, events);
+        verify(subscriptionTrackingService).checkPriceIncrease(any());
+        verifyNoInteractions(subscriptionAlertRepository, events);
         assertThat(count("centry.expenses.consumed")).isEqualTo(1.0);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
         assertThat(count("centry.subscription.alerts.emitted")).isZero();
@@ -135,7 +132,7 @@ class ExpenseServiceTest {
 
     private void assertNoSideEffects() {
         verify(expenseRepository, never()).save(any());
-        verifyNoInteractions(budgetTrackingService, subscriptionTrackingService, budgetAlertRepository,
+        verifyNoInteractions(budgetAlertPolicy, subscriptionTrackingService,
                 subscriptionAlertRepository, events);
         assertThat(count("centry.expenses.consumed")).isZero();
     }
@@ -198,7 +195,7 @@ class ExpenseServiceTest {
 
         assertThat(result.expense()).isSameAs(stored);
         assertThat(result.created()).isFalse();
-        verifyNoInteractions(budgetTrackingService, subscriptionTrackingService, budgetAlertRepository,
+        verifyNoInteractions(budgetAlertPolicy, subscriptionTrackingService,
                 subscriptionAlertRepository, events);
     }
 
@@ -226,8 +223,7 @@ class ExpenseServiceTest {
 
         ExpenseEntity e = savedExpense();
         assertThat(e.timestamp()).isEqualTo(CLOCK_NOW);
-        verify(subscriptionTrackingService).processAndCheckSubscription("Netflix", new BigDecimal("15.99"), CLOCK_NOW);
-        verify(budgetTrackingService).recordExpense("Entertainment", new BigDecimal("15.99"), CLOCK_NOW);
+        verify(budgetAlertPolicy).evaluate("Entertainment", CLOCK_NOW);
     }
 
     @Test
@@ -236,64 +232,27 @@ class ExpenseServiceTest {
 
         service.record(event(october));
 
-        verify(budgetTrackingService).recordExpense("Entertainment", new BigDecimal("15.99"), october);
+        verify(budgetAlertPolicy).evaluate("Entertainment", october);
     }
 
     @Test
-    void okBudgetStatusEmitsNoBudgetAlert() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(status(BudgetStatus.Status.OK));
+    void noBudgetAlertFromPolicyPublishesNothing() {
+        when(budgetAlertPolicy.evaluate("Entertainment", TX_TIME)).thenReturn(Optional.empty());
 
         service.record(event(TX_TIME));
 
-        verifyNoInteractions(budgetAlertRepository, events);
+        verifyNoInteractions(events);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
     }
 
     @Test
-    void warningExceededPersistsAndPublishesAlertMentioningWarningThreshold() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(status(BudgetStatus.Status.WARNING_EXCEEDED));
-        service.record(event(TX_TIME));
-
-        String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds warning threshold of $80.00";
-        ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
-        verify(budgetAlertRepository).save(saved.capture());
-        BudgetAlertEntity a = saved.getValue();
-        assertThat(a.category()).isEqualTo("Entertainment");
-        assertThat(a.currentSpend()).isEqualByComparingTo("120.00");
-        assertThat(a.monthlyLimit()).isEqualByComparingTo("100.00");
-        assertThat(a.warningAmount()).isEqualByComparingTo("80.00");
-        assertThat(a.status()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
-        assertThat(a.message()).isEqualTo(expectedMsg);
-        assertThat(a.timestamp()).isEqualTo(CLOCK_NOW);
-
-        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(events).publishEvent(payload.capture());
-        BudgetAlertEvent ev = (BudgetAlertEvent) payload.getValue();
-        assertThat(ev.getMessage()).isEqualTo(expectedMsg);
-        assertThat(ev.getAlertLevel()).isEqualTo(BudgetStatus.Status.WARNING_EXCEEDED);
-        assertThat(ev.getWarningThreshold()).isEqualByComparingTo("80.00");
-        assertThat(ev.getMonthlyLimit()).isEqualByComparingTo("100.00");
-        assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
-    }
-
-    @Test
-    void limitExceededAlertMentionsMonthlyLimit() {
-        when(budgetTrackingService.recordExpense("Entertainment", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(status(BudgetStatus.Status.LIMIT_EXCEEDED));
+    void budgetAlertFromPolicyIsPublishedAndCounted() {
+        BudgetAlertEvent alert = alertEvent(BudgetLevel.WARNING_EXCEEDED);
+        when(budgetAlertPolicy.evaluate("Entertainment", TX_TIME)).thenReturn(Optional.of(alert));
 
         service.record(event(TX_TIME));
 
-        String expectedMsg = "Budget alert for [Entertainment]: Current spend $120.00 exceeds monthly limit of $100.00";
-        ArgumentCaptor<BudgetAlertEntity> saved = ArgumentCaptor.forClass(BudgetAlertEntity.class);
-        verify(budgetAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().message()).isEqualTo(expectedMsg);
-        assertThat(saved.getValue().status()).isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
-        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(events).publishEvent(payload.capture());
-        assertThat(((BudgetAlertEvent) payload.getValue()).getAlertLevel())
-                .isEqualTo(BudgetStatus.Status.LIMIT_EXCEEDED);
+        verify(events).publishEvent((Object) alert);
         assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
     }
 
@@ -306,8 +265,7 @@ class ExpenseServiceTest {
     @Test
     void subscriptionAlertWithTimestampIsPersistedAndPublished() {
         SubscriptionAlertEvent alert = subAlert(TX_TIME);
-        when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(alert);
+        when(subscriptionTrackingService.checkPriceIncrease(any())).thenReturn(Optional.of(alert));
 
         service.record(event(TX_TIME));
 
@@ -320,21 +278,6 @@ class ExpenseServiceTest {
         assertThat(s.anomalyType()).isEqualTo("PRICE_INCREASE");
         assertThat(s.message()).isEqualTo("Price went up");
         assertThat(s.timestamp()).isEqualTo(TX_TIME);
-        verify(events).publishEvent((Object) alert);
-        verify(budgetAlertRepository, never()).save(any());
-        assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
-    }
-
-    @Test
-    void subscriptionAlertWithoutTimestampGetsCurrentTime() {
-        SubscriptionAlertEvent alert = subAlert(null);
-        when(subscriptionTrackingService.processAndCheckSubscription("Netflix", new BigDecimal("15.99"), TX_TIME))
-                .thenReturn(alert);
-        service.record(event(TX_TIME));
-
-        ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
-        verify(subscriptionAlertRepository).save(saved.capture());
-        assertThat(saved.getValue().timestamp()).isEqualTo(CLOCK_NOW);
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }

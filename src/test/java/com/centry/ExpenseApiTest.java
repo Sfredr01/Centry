@@ -1,6 +1,7 @@
 package com.centry;
 
 import com.centry.entity.ExpenseEntity;
+import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.ExpenseRepository;
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
@@ -9,6 +10,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.web.servlet.MvcResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -33,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -73,8 +76,6 @@ class ExpenseApiTest {
     static void budget(DynamicPropertyRegistry registry) {
         registry.add("centry.budget.webhook-url",
                 () -> "http://127.0.0.1:" + webhook.getAddress().getPort() + "/hook");
-        registry.add("centry.budget.categories.apitest.monthly-limit", () -> "100.00");
-        registry.add("centry.budget.categories.apitest.warning-threshold-percent", () -> "0.80");
     }
 
     @Autowired
@@ -82,6 +83,18 @@ class ExpenseApiTest {
 
     @Autowired
     private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private BudgetAlertRepository budgetAlertRepository;
+
+    // Alerts are deduplicated per category and month, so every test starts from no spend and no alerts.
+    @BeforeEach
+    void freshBudgetState() throws Exception {
+        expenseRepository.deleteAll();
+        budgetAlertRepository.deleteAll();
+        mockMvc.perform(put("/api/v1/budgets/apitest").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"monthlyLimit\":100.00,\"warnPercent\":80}")).andExpect(status().isOk());
+    }
 
     @Test
     void postPersistsSynchronously() throws Exception {
@@ -187,7 +200,7 @@ class ExpenseApiTest {
         mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Invalid expense"))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
                 .andExpect(jsonPath("$.errors." + field).isString());
 
         assertThat(expenseRepository.count()).isZero();
@@ -198,7 +211,7 @@ class ExpenseApiTest {
         mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON).content("{not json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Invalid expense"));
+                .andExpect(jsonPath("$.title").value("Invalid request"));
     }
 
     @Test
@@ -212,6 +225,22 @@ class ExpenseApiTest {
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
         assertThat(webhookBodies.get(0)).contains("LIMIT_EXCEEDED");
+    }
+
+    @Test
+    void secondExpenseOverLimitDoesNotRealert() throws Exception {
+        webhookBodies.clear();
+        webhookDelayMillis = 0;
+        String body = "{\"merchant\":\"Store\",\"amount\":%s,\"category\":\"apitest\"}";
+
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content(body.formatted("150.00"))).andExpect(status().isCreated());
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content(body.formatted("10.00"))).andExpect(status().isCreated());
+
+        await().during(Duration.ofMillis(750)).atMost(Duration.ofSeconds(3))
+                .untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
     }
 
     // Kafka used to decouple the webhook from the request; in-process it must stay off the request thread.

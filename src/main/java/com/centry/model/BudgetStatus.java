@@ -2,30 +2,26 @@ package com.centry.model;
 
 import java.math.BigDecimal;
 
-public class BudgetStatus {
-    private final String category;
-    private final BigDecimal currentSpend;
-    private final BigDecimal monthlyLimit;
-    private final BigDecimal warningAmount;
-    private final Status status;
+/** A budget and what has been spent against it in one month. Money has two decimals. */
+public record BudgetStatus(
+        String category,
+        BigDecimal monthlyLimit,
+        int warnPercent,
+        BigDecimal warningAmount,
+        BigDecimal spent,
+        BudgetLevel level) {
 
-    public enum Status {
-        OK,
-        WARNING_EXCEEDED,
-        LIMIT_EXCEEDED
+    /**
+     * Integer-cent math throughout. The warning amount is {@code limit * warnPercent / 100} rounded up to a
+     * whole cent, which is exactly "spent >= limit * warnPercent / 100" for whole-cent spend. Both thresholds
+     * are inclusive ({@code >=}); the limit level wins when the rounded warning amount reaches the limit.
+     */
+    public static BudgetStatus of(String category, long limitCents, int warnPercent, long spentCents) {
+        long warningCents = (limitCents * warnPercent + 99) / 100;
+        BudgetLevel level = spentCents >= limitCents ? BudgetLevel.LIMIT_EXCEEDED
+                : spentCents >= warningCents ? BudgetLevel.WARNING_EXCEEDED
+                : BudgetLevel.OK;
+        return new BudgetStatus(category, BigDecimal.valueOf(limitCents, 2), warnPercent,
+                BigDecimal.valueOf(warningCents, 2), BigDecimal.valueOf(spentCents, 2), level);
     }
-
-    public BudgetStatus(String category, BigDecimal currentSpend, BigDecimal monthlyLimit, BigDecimal warningAmount, Status status) {
-        this.category = category;
-        this.currentSpend = currentSpend;
-        this.monthlyLimit = monthlyLimit;
-        this.warningAmount = warningAmount;
-        this.status = status;
-    }
-
-    public String getCategory() { return category; }
-    public BigDecimal getCurrentSpend() { return currentSpend; }
-    public BigDecimal getMonthlyLimit() { return monthlyLimit; }
-    public BigDecimal getWarningAmount() { return warningAmount; }
-    public Status getStatus() { return status; }
 }

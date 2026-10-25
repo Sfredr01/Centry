@@ -45,6 +45,29 @@ curl -X POST http://localhost:8080/api/v1/expenses \
 	-d '{"merchant":"Chipotle","amount":14.50,"category":"Dining"}'
 ```
 
+## Budgets
+
+Budgets are stored in the database and managed over the API, not in YAML. Category names are matched
+case-insensitively after trimming (`Groceries`, ` groceries ` and `GROCERIES` are one budget).
+
+```bash
+# Create or replace a budget; warnPercent is optional (default 80, allowed 1-99)
+curl -X PUT http://localhost:8080/api/v1/budgets/groceries \
+	-H "Content-Type: application/json" \
+	-d '{"monthlyLimit":600.00,"warnPercent":80}'
+
+# All budgets with this month's spend and level (OK, WARNING_EXCEEDED, LIMIT_EXCEEDED)
+curl http://localhost:8080/api/v1/budgets
+
+# Remove a budget
+curl -X DELETE http://localhost:8080/api/v1/budgets/groceries
+```
+
+Spend is summed from the stored expenses for the calendar month of each expense, so it survives restarts. A
+category without a budget never alerts. Each category raises at most one warning and one limit alert per month;
+the warning amount is `monthlyLimit * warnPercent / 100`, rounded up to a whole cent. Set the webhook with
+`centry.budget.webhook-url`.
+
 ## KRaft (Confluent) usage & troubleshooting
 
 - Check Kafka container logs while it starts:

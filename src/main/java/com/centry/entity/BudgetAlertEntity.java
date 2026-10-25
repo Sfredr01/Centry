@@ -1,6 +1,6 @@
 package com.centry.entity;
 
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,7 +11,7 @@ public record BudgetAlertEntity(
         BigDecimal currentSpend,
         BigDecimal monthlyLimit,
         BigDecimal warningAmount,
-        BudgetStatus.Status status,
+        BudgetLevel status,
         String message,
         LocalDateTime timestamp) {
 }

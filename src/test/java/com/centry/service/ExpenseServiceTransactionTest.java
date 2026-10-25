@@ -1,6 +1,7 @@
 package com.centry.service;
 
 import com.centry.repository.BudgetAlertRepository;
+import com.centry.repository.BudgetRepository;
 import com.centry.repository.ExpenseRepository;
 import com.centry.repository.SubscriptionAlertRepository;
 import com.sun.net.httpserver.HttpServer;
@@ -59,8 +60,6 @@ class ExpenseServiceTransactionTest {
     static void budget(DynamicPropertyRegistry registry) {
         registry.add("centry.budget.webhook-url",
                 () -> "http://127.0.0.1:" + webhook.getAddress().getPort() + "/hook");
-        registry.add("centry.budget.categories.txtest.monthly-limit", () -> "100.00");
-        registry.add("centry.budget.categories.txtest.warning-threshold-percent", () -> "0.80");
     }
 
     @Autowired
@@ -72,6 +71,9 @@ class ExpenseServiceTransactionTest {
     @Autowired
     private BudgetAlertRepository budgetAlertRepository;
 
+    @Autowired
+    private BudgetRepository budgetRepository;
+
     @MockitoSpyBean
     private SubscriptionAlertRepository subscriptionAlertRepository;
 
@@ -80,6 +82,7 @@ class ExpenseServiceTransactionTest {
         webhookBodies.clear();
         expenseRepository.deleteAll();
         budgetAlertRepository.deleteAll();
+        budgetRepository.upsert("txtest", new BigDecimal("100.00"), 80);
     }
 
     private static ExpenseEvent event(String tx, String amount) {

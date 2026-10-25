@@ -21,7 +21,7 @@ class BudgetAlertEventTest {
 
     private BudgetAlertEvent sample() {
         return new BudgetAlertEvent("food", new BigDecimal("120.50"), new BigDecimal("100.00"),
-                new BigDecimal("80.00"), BudgetStatus.Status.LIMIT_EXCEEDED, "Over");
+                new BigDecimal("80.00"), BudgetLevel.LIMIT_EXCEEDED, "Over");
     }
 
     @Test
@@ -47,7 +47,7 @@ class BudgetAlertEventTest {
         assertEquals(new BigDecimal("120.50"), e.getCurrentSpend());
         assertEquals(new BigDecimal("100.00"), e.getMonthlyLimit());
         assertEquals(new BigDecimal("80.00"), e.getWarningThreshold());
-        assertEquals(BudgetStatus.Status.LIMIT_EXCEEDED, e.getAlertLevel());
+        assertEquals(BudgetLevel.LIMIT_EXCEEDED, e.getAlertLevel());
         assertEquals("Over", e.getMessage());
         assertNotNull(e.getTimestamp());
     }
@@ -60,7 +60,7 @@ class BudgetAlertEventTest {
         e.setCurrentSpend(BigDecimal.ONE);
         e.setMonthlyLimit(BigDecimal.TEN);
         e.setWarningThreshold(BigDecimal.TWO);
-        e.setAlertLevel(BudgetStatus.Status.WARNING_EXCEEDED);
+        e.setAlertLevel(BudgetLevel.WARNING_EXCEEDED);
         e.setMessage("hi");
         e.setTimestamp(ts);
 
@@ -68,7 +68,7 @@ class BudgetAlertEventTest {
         assertEquals(BigDecimal.ONE, e.getCurrentSpend());
         assertEquals(BigDecimal.TEN, e.getMonthlyLimit());
         assertEquals(BigDecimal.TWO, e.getWarningThreshold());
-        assertEquals(BudgetStatus.Status.WARNING_EXCEEDED, e.getAlertLevel());
+        assertEquals(BudgetLevel.WARNING_EXCEEDED, e.getAlertLevel());
         assertEquals("hi", e.getMessage());
         assertEquals(ts, e.getTimestamp());
     }

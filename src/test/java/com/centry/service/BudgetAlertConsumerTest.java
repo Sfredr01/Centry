@@ -2,7 +2,7 @@ package com.centry.service;
 
 import com.centry.config.BudgetConfigProperties;
 import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetStatus;
+import com.centry.model.BudgetLevel;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
@@ -56,14 +56,14 @@ class BudgetAlertConsumerTest {
         server.stop(0);
     }
 
-    private BudgetAlertEvent alert(BudgetStatus.Status level, String message) {
+    private BudgetAlertEvent alert(BudgetLevel level, String message) {
         return new BudgetAlertEvent("food", new BigDecimal("120.00"), new BigDecimal("100.00"),
                 new BigDecimal("80.00"), level, message);
     }
 
     @Test
     void limitExceededPostsCriticalJsonToWebhook() throws Exception {
-        consumer.handleBudgetAlert(alert(BudgetStatus.Status.LIMIT_EXCEEDED, "Over budget"));
+        consumer.handleBudgetAlert(alert(BudgetLevel.LIMIT_EXCEEDED, "Over budget"));
 
         assertEquals(1, requests.size());
         Received r = requests.get(0);
@@ -77,7 +77,7 @@ class BudgetAlertConsumerTest {
 
     @Test
     void warningPostsWarningPrefixToWebhook() throws Exception {
-        consumer.handleBudgetAlert(alert(BudgetStatus.Status.WARNING_EXCEEDED, "Getting close"));
+        consumer.handleBudgetAlert(alert(BudgetLevel.WARNING_EXCEEDED, "Getting close"));
 
         assertEquals(1, requests.size());
         JsonNode json = mapper.readTree(requests.get(0).body());
@@ -89,28 +89,28 @@ class BudgetAlertConsumerTest {
     @Test
     void nullWebhookSendsNothing() {
         config.setWebhookUrl(null);
-        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetStatus.Status.WARNING_EXCEEDED, "m")));
+        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetLevel.WARNING_EXCEEDED, "m")));
         assertTrue(requests.isEmpty());
     }
 
     @Test
     void blankWebhookSendsNothing() {
         config.setWebhookUrl("   ");
-        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetStatus.Status.LIMIT_EXCEEDED, "m")));
+        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetLevel.LIMIT_EXCEEDED, "m")));
         assertTrue(requests.isEmpty());
     }
 
     @Test
     void placeholderWebhookSendsNothing() {
         config.setWebhookUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/YOUR_DISCORD_WEBHOOK");
-        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetStatus.Status.LIMIT_EXCEEDED, "m")));
+        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetLevel.LIMIT_EXCEEDED, "m")));
         assertTrue(requests.isEmpty());
     }
 
     @Test
     void serverErrorIsSwallowed() {
         responseStatus = 500;
-        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetStatus.Status.LIMIT_EXCEEDED, "m")));
+        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetLevel.LIMIT_EXCEEDED, "m")));
         assertEquals(1, requests.size());
     }
 
@@ -121,7 +121,7 @@ class BudgetAlertConsumerTest {
             freePort = s.getLocalPort();
         }
         config.setWebhookUrl("http://127.0.0.1:" + freePort + "/hook");
-        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetStatus.Status.WARNING_EXCEEDED, "m")));
+        assertDoesNotThrow(() -> consumer.handleBudgetAlert(alert(BudgetLevel.WARNING_EXCEEDED, "m")));
         assertTrue(requests.isEmpty());
     }
 }

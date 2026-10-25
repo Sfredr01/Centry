@@ -1,12 +1,14 @@
 package com.centry.kafka;
 
 import com.centry.entity.ExpenseEntity;
+import com.centry.repository.BudgetRepository;
 import com.centry.repository.ExpenseRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +23,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +47,6 @@ class KafkaProfileIngestTest {
     @DynamicPropertySource
     static void budget(DynamicPropertyRegistry registry) {
         registry.add("centry.budget.webhook-url", () -> "");
-        registry.add("centry.budget.categories.kafkatest.monthly-limit", () -> "100.00");
-        registry.add("centry.budget.categories.kafkatest.warning-threshold-percent", () -> "0.80");
     }
 
     @Autowired
@@ -53,6 +54,14 @@ class KafkaProfileIngestTest {
 
     @Autowired
     private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private BudgetRepository budgetRepository;
+
+    @BeforeEach
+    void configureBudget() {
+        budgetRepository.upsert("kafkatest", new BigDecimal("100.00"), 80);
+    }
 
     @MockitoSpyBean
     private KafkaExpenseListener listener;

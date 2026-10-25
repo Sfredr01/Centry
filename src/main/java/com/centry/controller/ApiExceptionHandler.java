@@ -21,7 +21,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
-    static final String INVALID_EXPENSE = "Invalid expense";
+    static final String INVALID_REQUEST = "Invalid request";
 
     @ExceptionHandler(ExpenseConflictException.class)
     ProblemDetail handleConflict(ExpenseConflictException ex) {
@@ -38,7 +38,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Request validation failed");
-        problem.setTitle(INVALID_EXPENSE);
+        problem.setTitle(INVALID_REQUEST);
         problem.setProperty("errors", errors);
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
@@ -47,7 +47,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Request body is not valid JSON");
-        problem.setTitle(INVALID_EXPENSE);
+        problem.setTitle(INVALID_REQUEST);
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 }
