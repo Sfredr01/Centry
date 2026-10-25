@@ -200,7 +200,7 @@ class ExpenseApiTest {
         mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Invalid expense"))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
                 .andExpect(jsonPath("$.errors." + field).isString());
 
         assertThat(expenseRepository.count()).isZero();
@@ -211,7 +211,7 @@ class ExpenseApiTest {
         mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON).content("{not json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Invalid expense"));
+                .andExpect(jsonPath("$.title").value("Invalid request"));
     }
 
     @Test

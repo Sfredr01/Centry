@@ -114,6 +114,7 @@ class BudgetApiTest {
         putBudget("groceries", json)
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
                 .andExpect(jsonPath("$.errors." + field).isString());
 
         mockMvc.perform(get("/api/v1/budgets")).andExpect(jsonPath("$.length()").value(0));
