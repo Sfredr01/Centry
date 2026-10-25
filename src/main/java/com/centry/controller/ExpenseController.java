@@ -27,6 +27,6 @@ public class ExpenseController {
         }
 
         expenseService.record(expense);
-        return ResponseEntity.ok("Expense event accepted and published to Kafka.");
+        return ResponseEntity.ok("Expense recorded.");
     }
 }

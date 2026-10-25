@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -25,6 +26,8 @@ public class BudgetAlertConsumer {
         this.restClient = RestClient.create();
     }
 
+    // Async keeps the outbound webhook call off the request thread.
+    @Async
     @EventListener
     public void handleBudgetAlert(BudgetAlertEvent alert) {
         if (alert.getAlertLevel() == BudgetStatus.Status.LIMIT_EXCEEDED) {

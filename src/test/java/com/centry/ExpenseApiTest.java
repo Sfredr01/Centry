@@ -18,10 +18,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,12 +35,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ExpenseApiTest {
 
     private static final List<String> webhookBodies = new CopyOnWriteArrayList<>();
+    private static volatile long webhookDelayMillis;
     private static HttpServer webhook;
 
     @BeforeAll
     static void startWebhook() throws IOException {
         webhook = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        webhook.setExecutor(Executors.newCachedThreadPool());
         webhook.createContext("/hook", exchange -> {
+            try {
+                Thread.sleep(webhookDelayMillis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             webhookBodies.add(new String(exchange.getRequestBody().readAllBytes()));
             exchange.sendResponseHeaders(200, -1);
             exchange.close();
@@ -84,12 +94,29 @@ class ExpenseApiTest {
     @Test
     void budgetAlertReachesWebhookWithoutKafka() throws Exception {
         webhookBodies.clear();
+        webhookDelayMillis = 0;
 
         mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"merchant\":\"Store\",\"amount\":150.00,\"category\":\"apitest\"}"))
                 .andExpect(status().isOk());
 
-        assertThat(webhookBodies).hasSize(1);
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
         assertThat(webhookBodies.get(0)).contains("LIMIT_EXCEEDED");
+    }
+
+    // Kafka used to decouple the webhook from the request; in-process it must stay off the request thread.
+    @Test
+    void postDoesNotWaitForSlowWebhook() throws Exception {
+        webhookBodies.clear();
+        webhookDelayMillis = 3000;
+
+        long start = System.nanoTime();
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"merchant\":\"Store\",\"amount\":150.00,\"category\":\"apitest\"}"))
+                .andExpect(status().isOk());
+        Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+
+        assertThat(elapsed).isLessThan(Duration.ofMillis(1500));
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
     }
 }

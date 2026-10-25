@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ExpenseController.class)
 class ExpenseControllerTest {
 
-    private static final String ACCEPTED = "Expense event accepted and published to Kafka.";
+    private static final String ACCEPTED = "Expense recorded.";
 
     @Autowired
     private MockMvc mockMvc;
