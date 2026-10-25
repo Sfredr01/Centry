@@ -12,6 +12,7 @@ public class BudgetAlertEvent {
     private BudgetLevel alertLevel; // WARNING_EXCEEDED or LIMIT_EXCEEDED
     private String message;
     private Instant timestamp;
+    private Long alertId; // budget_alert row id, so delivery can be tracked
 
     public BudgetAlertEvent() {
         this.timestamp = Instant.now();
@@ -29,6 +30,9 @@ public class BudgetAlertEvent {
     }
 
     // Getters and Setters
+    public Long getAlertId() { return alertId; }
+    public void setAlertId(Long alertId) { this.alertId = alertId; }
+
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 

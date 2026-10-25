@@ -37,14 +37,16 @@ class BudgetAlertRepositoryTest {
     void duplicateInsertIgnored() {
         YearMonth march = YearMonth.of(2026, 3);
 
-        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), march)).isTrue();
-        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), march)).isFalse();
-        assertThat(alerts.insertIfAbsent(alert("  FOOD ", BudgetLevel.WARNING_EXCEEDED), march)).isFalse();
+        var first = alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), march);
+        assertThat(first).isPresent();
+        assertThat(first.getAsLong()).isEqualTo(alerts.findTop50ByOrderByTimestampDesc().get(0).id());
+        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), march)).isEmpty();
+        assertThat(alerts.insertIfAbsent(alert("  FOOD ", BudgetLevel.WARNING_EXCEEDED), march)).isEmpty();
 
         // A different level, month or category is a different alert.
-        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.LIMIT_EXCEEDED), march)).isTrue();
-        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), YearMonth.of(2026, 4))).isTrue();
-        assertThat(alerts.insertIfAbsent(alert("rent", BudgetLevel.WARNING_EXCEEDED), march)).isTrue();
+        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.LIMIT_EXCEEDED), march)).isPresent();
+        assertThat(alerts.insertIfAbsent(alert("food", BudgetLevel.WARNING_EXCEEDED), YearMonth.of(2026, 4))).isPresent();
+        assertThat(alerts.insertIfAbsent(alert("rent", BudgetLevel.WARNING_EXCEEDED), march)).isPresent();
 
         assertThat(alerts.findTop50ByOrderByTimestampDesc()).hasSize(4);
     }

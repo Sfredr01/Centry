@@ -58,7 +58,7 @@ class ExpenseServiceTransactionTest {
 
     @DynamicPropertySource
     static void budget(DynamicPropertyRegistry registry) {
-        registry.add("centry.budget.webhook-url",
+        registry.add("centry.notify.webhook.url",
                 () -> "http://127.0.0.1:" + webhook.getAddress().getPort() + "/hook");
     }
 
