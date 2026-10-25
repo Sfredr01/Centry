@@ -6,9 +6,10 @@ import com.centry.model.BudgetStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.client.RestClient;
 
 import java.util.Map;
@@ -26,9 +27,10 @@ public class BudgetAlertConsumer {
         this.restClient = RestClient.create();
     }
 
-    // Async keeps the outbound webhook call off the request thread.
+    // Async keeps the outbound webhook call off the request thread; AFTER_COMMIT means a rolled-back
+    // expense never notifies anyone.
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleBudgetAlert(BudgetAlertEvent alert) {
         if (alert.getAlertLevel() == BudgetStatus.Status.LIMIT_EXCEEDED) {
             log.error("🚨 CRITICAL BUDGET ALERT: Category [{}] - Total spend: ${} (Limit: ${}). Message: {}",

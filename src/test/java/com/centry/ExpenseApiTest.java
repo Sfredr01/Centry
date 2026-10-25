@@ -121,6 +121,38 @@ class ExpenseApiTest {
                 .isEqualTo(id);
     }
 
+    private static final String REPLAYED = "{\"transactionId\":\"tx-replay\",\"merchant\":\"Cafe\","
+            + "\"amount\":4.50,\"category\":\"misc\"}";
+
+    @Test
+    void replaySameTransactionIdReturns200NoDuplicate() throws Exception {
+        expenseRepository.deleteAll();
+
+        MvcResult first = mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content(REPLAYED)).andExpect(status().isCreated()).andReturn();
+        MvcResult second = mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content(REPLAYED)).andExpect(status().isOk()).andReturn();
+
+        assertThat(second.getResponse().getHeader("Location")).isEqualTo(first.getResponse().getHeader("Location"));
+        assertThat(second.getResponse().getContentAsString()).isEqualTo(first.getResponse().getContentAsString());
+        assertThat(expenseRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void conflictingReplayReturns409() throws Exception {
+        expenseRepository.deleteAll();
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON).content(REPLAYED))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                .content(REPLAYED.replace("4.50", "9.99")))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value("transactionId already used for a different expense"));
+
+        assertThat(expenseRepository.count()).isEqualTo(1);
+    }
+
     @Test
     void getById200() throws Exception {
         expenseRepository.deleteAll();

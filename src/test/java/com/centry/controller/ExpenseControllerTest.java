@@ -77,6 +77,20 @@ class ExpenseControllerTest {
         assertThat(sent.getCategory()).isEqualTo("dining");
     }
 
+    @Test
+    void replayedExpenseIs200WithLocation() throws Exception {
+        ExpenseEntity existing = new ExpenseEntity(7L, "tx-1", "Coffee Shop", BigDecimal.ONE, "dining",
+                LocalDateTime.of(2026, 3, 4, 5, 6, 7));
+        when(expenseService.record(any())).thenReturn(new Recorded(existing, false));
+
+        mockMvc.perform(post("/api/v1/expenses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transactionId\":\"tx-1\",\"merchant\":\"Coffee Shop\",\"amount\":1,\"category\":\"dining\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Location", "/api/v1/expenses/7"))
+                .andExpect(jsonPath("$.id").value(7));
+    }
+
     // The service defaults a missing timestamp from the Clock, so a replay without one stays comparable.
     @Test
     void missingTransactionIdIsGeneratedAndTimestampLeftToTheService() throws Exception {

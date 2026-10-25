@@ -1,12 +1,15 @@
 package com.centry.controller;
 
+import com.centry.service.ExpenseConflictException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -19,6 +22,13 @@ import java.util.Map;
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     static final String INVALID_EXPENSE = "Invalid expense";
+
+    @ExceptionHandler(ExpenseConflictException.class)
+    ProblemDetail handleConflict(ExpenseConflictException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conflicting expense");
+        return problem;
+    }
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,

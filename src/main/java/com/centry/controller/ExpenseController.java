@@ -31,7 +31,11 @@ public class ExpenseController {
         }
 
         Recorded recorded = expenseService.record(expense);
-        return ResponseEntity.created(location(recorded.expense())).body(recorded.expense());
+        URI location = location(recorded.expense());
+        // A replay of an already stored expense is not a new resource: 200 instead of 201.
+        return recorded.created()
+                ? ResponseEntity.created(location).body(recorded.expense())
+                : ResponseEntity.ok().location(location).body(recorded.expense());
     }
 
     @GetMapping("/{id}")

@@ -1,6 +1,8 @@
 package com.centry.repository;
 
 import com.centry.entity.ExpenseEntity;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
@@ -22,14 +24,26 @@ public class ExpenseRepository {
         this.jdbc = jdbc;
     }
 
+    // Spring has no error-code table for SQLite (the driver reports plain 19 and no SQL state), so a
+    // UNIQUE violation surfaces as "uncategorized"; the driver's result-code name is the stable marker.
+    private static final String SQLITE_CONSTRAINT_UNIQUE = "SQLITE_CONSTRAINT_UNIQUE";
+
+    /** @throws DuplicateKeyException if the transaction id is already stored */
     public ExpenseEntity save(ExpenseEntity e) {
         var keys = new GeneratedKeyHolder();
-        jdbc.sql("""
-                        INSERT INTO expense (transaction_id, merchant, amount_cents, category, occurred_at)
-                        VALUES (?, ?, ?, ?, ?)""")
-                .params(e.transactionId(), e.merchant(), Cents.toCents(e.amount()), e.category(),
-                        Cents.toText(e.timestamp()))
-                .update(keys);
+        try {
+            jdbc.sql("""
+                            INSERT INTO expense (transaction_id, merchant, amount_cents, category, occurred_at)
+                            VALUES (?, ?, ?, ?, ?)""")
+                    .params(e.transactionId(), e.merchant(), Cents.toCents(e.amount()), e.category(),
+                            Cents.toText(e.timestamp()))
+                    .update(keys);
+        } catch (UncategorizedSQLException ex) {
+            if (ex.getSQLException().getMessage().contains(SQLITE_CONSTRAINT_UNIQUE)) {
+                throw new DuplicateKeyException("Duplicate transaction id " + e.transactionId(), ex);
+            }
+            throw ex;
+        }
         return new ExpenseEntity(keys.getKey().longValue(), e.transactionId(), e.merchant(), e.amount(),
                 e.category(), e.timestamp());
     }
