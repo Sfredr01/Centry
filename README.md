@@ -40,10 +40,37 @@ The included `docker-compose.yml` uses the `confluentinc/cp-kafka` image configu
 3. Submit a test expense (example):
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/expenses \
+curl -u admin -X POST http://localhost:8080/api/v1/expenses \
 	-H "Content-Type: application/json" \
 	-d '{"merchant":"Chipotle","amount":14.50,"category":"Dining"}'
 ```
+
+## First run / login
+
+Every endpoint except `GET /actuator/health` needs a login. On the first start with an empty database the app
+creates an admin from `CENTRY_ADMIN_PASSWORD` (at least 12 characters; user name from `CENTRY_ADMIN_USERNAME`,
+default `admin`). With no users and no password it refuses to start. Once any user exists the variable is
+ignored and never overwrites anything.
+
+```bash
+CENTRY_ADMIN_PASSWORD='a long passphrase' ./gradlew bootRun
+# Docker: copy .env.example to .env and set CENTRY_ADMIN_PASSWORD (docker-compose.prod.yml requires it)
+```
+
+- **Browsers** sign in on `/login` (form login, optional "remember me" for 30 days; tokens are stored in the
+  database and survive restarts). Anonymous page requests redirect to `/login`.
+- **Scripts and phone shortcuts** use HTTP Basic on `/api/**`: `curl -u admin:... http://localhost:8080/api/v1/budgets`.
+  Unauthenticated API calls get a plain `401` with no `WWW-Authenticate` header, so browsers never pop up a
+  Basic prompt or cache credentials.
+- **Roles:** `ADMIN` can do everything. `MEMBER` can record expenses and read budgets and the dashboard, but cannot
+  `PUT`/`DELETE` budgets or manage users.
+- **Users** (admin only): `POST /api/v1/users` with `{"username","displayName","password"?,"role"}` and
+  `GET /api/v1/users`. Leave out `password` for a household member who cannot log in (for example a child).
+  Passwords are at least 12 characters. Changing passwords and deleting users are not available yet.
+- **HTTPS:** the session cookie is `HttpOnly` and `SameSite=Lax`. Plain HTTP is common on a LAN, so `Secure` is off
+  by default. If you put the app behind HTTPS, set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`. Tailscale or a Caddy
+  reverse proxy is the easiest way to get HTTPS at home.
+- Only `/actuator/health` is exposed, and it shows just the status (the Docker healthcheck uses it).
 
 ## Budgets
 
@@ -52,15 +79,15 @@ case-insensitively after trimming (`Groceries`, ` groceries ` and `GROCERIES` ar
 
 ```bash
 # Create or replace a budget; warnPercent is optional (default 80, allowed 1-99)
-curl -X PUT http://localhost:8080/api/v1/budgets/groceries \
+curl -u admin -X PUT http://localhost:8080/api/v1/budgets/groceries \
 	-H "Content-Type: application/json" \
 	-d '{"monthlyLimit":600.00,"warnPercent":80}'
 
 # All budgets with this month's spend and level (OK, WARNING_EXCEEDED, LIMIT_EXCEEDED)
-curl http://localhost:8080/api/v1/budgets
+curl -u admin http://localhost:8080/api/v1/budgets
 
 # Remove a budget
-curl -X DELETE http://localhost:8080/api/v1/budgets/groceries
+curl -u admin -X DELETE http://localhost:8080/api/v1/budgets/groceries
 ```
 
 Spend is summed from the stored expenses for the calendar month of each expense, so it survives restarts. A
@@ -158,7 +185,6 @@ Add a license file to the project root (for example, MIT) if you intend to open 
 
 - Add examples for testing with an embedded Kafka broker for CI
 - Add health checks and metrics
-- Add authentication for the REST API
 
 ## Deploying to Raspberry Pi
 

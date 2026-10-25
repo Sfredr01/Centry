@@ -114,4 +114,25 @@ class MigrationTest {
         assertThat(old.sql("SELECT notified_at FROM budget_alert WHERE category = 'rent'")
                 .query(String.class).optional()).isEmpty();
     }
+
+    @Test
+    void v4CreatesUsersAndPersistentLogins() {
+        assertThat(jdbc.sql("SELECT success FROM flyway_schema_history WHERE version = '4'")
+                .query(Integer.class).single()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT strict FROM pragma_table_list WHERE name = 'users'")
+                .query(Integer.class).single()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT name FROM pragma_table_info('persistent_logins') ORDER BY name")
+                .query(String.class).list()).containsExactly("last_used", "series", "token", "username");
+
+        String insert = "INSERT INTO users (username, display_name, password_hash, role, created_at) "
+                + "VALUES (?, 'N', NULL, ?, '2026-01-01T00:00:00')";
+        jdbc.sql(insert).params("Alice", "MEMBER").update();
+        assertThat(jdbc.sql("SELECT password_hash FROM users WHERE username = 'alice'")
+                .query(String.class).optional()).isEmpty();
+        assertThatThrownBy(() -> jdbc.sql(insert).params("ALICE", "MEMBER").update())
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("UNIQUE constraint failed");
+        assertThatThrownBy(() -> jdbc.sql(insert).params("bob", "ROOT").update())
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("CHECK constraint failed");
+        jdbc.sql("DELETE FROM users WHERE username = 'Alice'").update();
+    }
 }

@@ -8,3 +8,6 @@ centry:
   notify:
     # Tests call AlertRetrySweeper.sweep() themselves; a background sweep would race their assertions.
     retry-enabled: false
+  # Bootstrap admin for tests (>= 12 chars). Every test context starts with an empty database, so this user exists.
+  admin:
+    password: test-admin-password

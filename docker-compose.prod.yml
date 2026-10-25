@@ -46,6 +46,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:9092
+      CENTRY_ADMIN_PASSWORD: ${CENTRY_ADMIN_PASSWORD:?set CENTRY_ADMIN_PASSWORD in .env}
       JAVA_TOOL_OPTIONS: "-Xmx384m -Xms128m -XX:+UseG1GC"
     volumes:
       - /opt/centry/data/app:/data
