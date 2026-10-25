@@ -35,11 +35,11 @@ spring:
       properties:
         spring.json.trusted.packages: "com.centry.*"
 
-  management:
-    endpoints:
-      web:
-        exposure:
-          include: "health,info,metrics"
-    endpoint:
-      health:
-        show-details: always
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: always
