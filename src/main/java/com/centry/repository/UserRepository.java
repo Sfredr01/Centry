@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.OptionalLong;
 
 /** Reads never select password_hash; authentication reads it through Spring's own JdbcDaoImpl. */
 @Repository
@@ -44,6 +45,16 @@ public class UserRepository {
     public List<User> findAll() {
         return jdbc.sql("SELECT id, username, display_name, role, created_at FROM users ORDER BY id")
                 .query(UserRepository::map).list();
+    }
+
+    /** The username column is NOCASE, so the lookup ignores case like the login does. */
+    public OptionalLong idByUsername(String username) {
+        return jdbc.sql("SELECT id FROM users WHERE username = ?").param(username).query(Long.class).optional()
+                .map(OptionalLong::of).orElseGet(OptionalLong::empty);
+    }
+
+    public boolean existsById(long id) {
+        return jdbc.sql("SELECT count(*) FROM users WHERE id = ?").param(id).query(Long.class).single() > 0;
     }
 
     private static User map(ResultSet rs, int row) throws SQLException {
