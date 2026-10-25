@@ -1,0 +1,4 @@
+# Hermetic test overrides: no on-disk database, nothing written to ./data.
+spring:
+  datasource:
+    url: jdbc:h2:mem:centry;DB_CLOSE_DELAY=-1
