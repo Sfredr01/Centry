@@ -55,6 +55,12 @@ public class ExpenseRepository {
         return jdbc.sql(SELECT + " ORDER BY id").query(ExpenseRepository::map).list();
     }
 
+    /** The latest expenses, newest date first; ties (same timestamp) go to the one recorded last. */
+    public List<ExpenseEntity> findRecent(int limit) {
+        return jdbc.sql(SELECT + " ORDER BY occurred_at DESC, id DESC LIMIT ?").param(limit)
+                .query(ExpenseRepository::map).list();
+    }
+
     public Optional<ExpenseEntity> findById(long id) {
         return jdbc.sql(SELECT + " WHERE id = ?").param(id).query(ExpenseRepository::map).optional();
     }

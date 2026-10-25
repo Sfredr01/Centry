@@ -67,6 +67,21 @@ class ExpenseRepositoryTest {
     }
 
     @Test
+    void findRecentOrdersByDateThenInsertionAndHonoursLimit() {
+        ExpenseEntity older = repository.save(at("a", TS));
+        ExpenseEntity tieFirst = repository.save(at("b", TS.plusDays(2)));
+        ExpenseEntity tieLast = repository.save(at("c", TS.plusDays(2)));
+        repository.save(at("d", TS.minusDays(5)));
+
+        assertThat(repository.findRecent(3)).containsExactly(tieLast, tieFirst, older);
+        assertThat(repository.findRecent(10)).hasSize(4);
+    }
+
+    private ExpenseEntity at(String id, LocalDateTime when) {
+        return new ExpenseEntity(null, id, "m", new BigDecimal("1.00"), "dining", when);
+    }
+
+    @Test
     void findsByIdAndByTransactionId() {
         ExpenseEntity saved = repository.save(expense("dining", "10.50"));
 
