@@ -41,6 +41,10 @@ class AdminBootstrap implements SmartInitializingSingleton {
             throw new IllegalStateException("CENTRY_ADMIN_PASSWORD (centry.admin.password) must be at least "
                     + MIN_PASSWORD_LENGTH + " characters");
         }
+        if (!BcryptLimit.Validator.fits(password)) {
+            throw new IllegalStateException("CENTRY_ADMIN_PASSWORD (centry.admin.password) must be at most "
+                    + BcryptLimit.MAX_BYTES + " bytes (UTF-8)");
+        }
         users.insert(properties.username(), properties.username(), passwordEncoder.encode(password),
                 Role.ADMIN, LocalDateTime.now(clock));
     }

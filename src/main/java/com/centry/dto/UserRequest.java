@@ -1,6 +1,7 @@
 package com.centry.dto;
 
 import com.centry.model.Role;
+import com.centry.security.BcryptLimit;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -14,8 +15,8 @@ public record UserRequest(
 
         @NotBlank @Size(max = 80) String displayName,
 
-        // Optional: no password means a member who cannot log in. 72 is bcrypt's input limit.
-        @Size(min = 12, max = 72) String password,
+        // Optional: no password means a member who cannot log in.
+        @Size(min = 12) @BcryptLimit String password,
 
         @NotNull Role role) {
 }

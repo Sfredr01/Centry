@@ -89,7 +89,9 @@ class UserApiTest {
             "blank display name|{\"username\":\"okname\",\"displayName\":\"\",\"role\":\"MEMBER\"}|displayName",
             "missing role|{\"username\":\"okname\",\"displayName\":\"A\"}|role",
             "short password|{\"username\":\"okname\",\"displayName\":\"A\",\"password\":\"elevenchars\",\"role\":\"MEMBER\"}|password",
-            "empty password|{\"username\":\"okname\",\"displayName\":\"A\",\"password\":\"\",\"role\":\"MEMBER\"}|password"})
+            "empty password|{\"username\":\"okname\",\"displayName\":\"A\",\"password\":\"\",\"role\":\"MEMBER\"}|password",
+            // 40 chars but 80 UTF-8 bytes: over bcrypt's 72-byte input limit.
+            "password over 72 bytes|{\"username\":\"okname\",\"displayName\":\"A\",\"password\":\"éééééééééééééééééééééééééééééééééééééééé\",\"role\":\"MEMBER\"}|password"})
     void invalid400(String name, String json, String field) throws Exception {
         create(json)
                 .andExpect(status().isBadRequest())

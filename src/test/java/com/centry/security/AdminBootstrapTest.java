@@ -67,6 +67,12 @@ class AdminBootstrapTest {
     }
 
     @Test
+    void failsStartupWhenPasswordOver72Bytes() {
+        assertThatThrownBy(() -> start("--centry.admin.password=" + "é".repeat(40)))
+                .hasStackTraceContaining("at most 72 bytes");
+    }
+
+    @Test
     void ignoresPropertyWhenUsersExist() {
         start("--centry.admin.password=first-password-123").close();
 
