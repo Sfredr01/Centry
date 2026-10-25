@@ -10,6 +10,8 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: #d64545; }
 table { font-size: .9rem; }
 th, td { padding: .5rem .4rem; }
 td:first-child { white-space: nowrap; }
+/* Who spent it sits under the merchant instead of costing a column. */
+td small { display: block; }
 
 /* Budget cards: category and status on one line; Pico's .grid keeps the two inputs side by side
    (it collapses below its breakpoint, so force two columns: the inputs are short numbers). */

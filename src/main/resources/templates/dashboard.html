@@ -4,6 +4,16 @@
 <main class="container">
     <h1 th:text="${#temporals.format(month, 'MMMM yyyy')}">March 2026</h1>
 
+    <nav id="member-filter" aria-label="Show spending of">
+        <ul>
+            <li><a th:href="@{/}" th:attr="aria-current=${selected == null} ? 'true'">Everyone</a></li>
+            <li th:each="m : ${members}">
+                <a th:href="@{/(member=${m.id})}" th:text="${m.displayName}"
+                   th:attr="aria-current=${m.id == selected} ? 'true'">Member</a>
+            </li>
+        </ul>
+    </nav>
+
     <section th:if="${!budgets.empty}" id="budget-bars">
         <article th:each="b : ${budgets}">
             <label>
@@ -27,11 +37,14 @@
                 <tr><th>Date</th><th>Merchant</th><th>Category</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
-                <tr th:each="e : ${recent}">
-                    <td th:text="${#temporals.format(e.timestamp, 'yyyy-MM-dd')}">2026-03-15</td>
-                    <td th:text="${e.merchant}">Market</td>
-                    <td th:text="${e.category}">food</td>
-                    <td th:text="${e.amount}">12.00</td>
+                <tr th:each="r : ${recent}">
+                    <td th:text="${#temporals.format(r.expense.timestamp, 'yyyy-MM-dd')}">2026-03-15</td>
+                    <td>
+                        <span th:text="${r.expense.merchant}">Market</span>
+                        <small class="muted" th:if="${r.spender}" th:text="${r.spender}">Mom</small>
+                    </td>
+                    <td th:text="${r.expense.category}">food</td>
+                    <td th:text="${r.expense.amount}">12.00</td>
                 </tr>
                 </tbody>
             </table>

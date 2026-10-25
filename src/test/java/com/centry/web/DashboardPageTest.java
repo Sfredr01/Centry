@@ -2,11 +2,15 @@ package com.centry.web;
 
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.BudgetRepository;
+import com.centry.model.Role;
 import com.centry.repository.ExpenseRepository;
+import com.centry.repository.UserRepository;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -45,10 +49,29 @@ class DashboardPageTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private UserRepository users;
+
+    private long mom;
+    private long kid;
+
     @BeforeEach
     void clean() {
         expenses.deleteAll();
         jdbc.sql("DELETE FROM budget").update();
+        jdbc.sql("DELETE FROM users WHERE username <> 'admin'").update();
+        LocalDateTime joined = LocalDateTime.of(2026, 1, 1, 0, 0);
+        mom = users.insert("mom", "Mom", null, Role.MEMBER, joined).id();
+        kid = users.insert("kid", "Kid", null, Role.MEMBER, joined).id();
+    }
+
+    private void spendBy(Long spender, String merchant, String category, String amount, LocalDateTime at) {
+        expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), merchant, new BigDecimal(amount),
+                category, at, spender, null));
+    }
+
+    private Document dashboard(String url) throws Exception {
+        return Html.of(mockMvc.perform(get(url).with(user("mom").roles("MEMBER"))).andExpect(status().isOk()));
     }
 
     private void spend(String merchant, String category, String amount, LocalDateTime at) {
@@ -100,6 +123,59 @@ class DashboardPageTest {
         assertThat(page.select("#empty-state a[href=/add]")).hasSize(1);
         assertThat(page.select("#recent-expenses")).isEmpty();
         assertThat(page.select("progress")).isEmpty();
+    }
+
+    private static final LocalDateTime MARCH_2 = LocalDateTime.of(2026, 3, 2, 9, 0);
+
+    @Test
+    void memberFilterScopesTotalsAndRecent() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        spendBy(mom, "Market", "Food", "10.00", MARCH_2);
+        spendBy(kid, "Candy", "Food", "30.00", MARCH_2);
+        spendBy(null, "Legacy", "Food", "5.00", MARCH_2);
+
+        Document kidOnly = dashboard("/?member=" + kid);
+
+        assertThat(kidOnly.selectFirst("progress").attr("value")).isEqualTo("30.00");
+        // The limit stays the household's.
+        assertThat(kidOnly.selectFirst("progress").attr("max")).isEqualTo("100.00");
+        assertThat(kidOnly.select("#recent-expenses tbody tr")).hasSize(1);
+        assertThat(kidOnly.select("#recent-expenses tbody tr").text()).contains("Candy");
+        assertThat(kidOnly.select("#member-filter a").eachText()).containsExactly("Everyone", "admin", "Mom", "Kid");
+        assertThat(kidOnly.select("#member-filter a[aria-current]").eachText()).containsExactly("Kid");
+
+        Document everyone = dashboard("/");
+        assertThat(everyone.selectFirst("progress").attr("value")).isEqualTo("45.00");
+        assertThat(everyone.select("#recent-expenses tbody tr")).hasSize(3);
+        assertThat(everyone.select("#member-filter a[aria-current]").eachText()).containsExactly("Everyone");
+        // Works without JavaScript: plain links.
+        assertThat(everyone.select("#member-filter a").eachAttr("href")).contains("/?member=" + kid, "/");
+    }
+
+    @ParameterizedTest(name = "member={0}")
+    @ValueSource(strings = {"abc", "999999", ""})
+    void unknownMemberMeansEveryone(String member) throws Exception {
+        spendBy(mom, "Market", "Food", "10.00", MARCH_2);
+        spendBy(kid, "Candy", "Food", "30.00", MARCH_2);
+
+        Document page = dashboard("/?member=" + member);
+
+        assertThat(page.select("#recent-expenses tbody tr")).hasSize(2);
+        assertThat(page.select("#member-filter a[aria-current]").eachText()).containsExactly("Everyone");
+    }
+
+    @Test
+    void showsWhoSpent() throws Exception {
+        spendBy(kid, "Candy", "Food", "3.00", MARCH_2);
+        spendBy(null, "Legacy", "Food", "5.00", MARCH_2.plusHours(1));
+
+        var rows = dashboard("/").select("#recent-expenses tbody tr");
+
+        // Newest first: the unattributed one shows no name, the other names its spender under the merchant.
+        assertThat(rows.get(0).select("small.muted")).isEmpty();
+        assertThat(rows.get(1).select("td:nth-child(2) small.muted").text()).isEqualTo("Kid");
+        // Still four columns: the name must not cost a phone-width column.
+        assertThat(rows.get(1).select("td")).hasSize(4);
     }
 
     @Test
