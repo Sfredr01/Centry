@@ -1,5 +1,6 @@
 package com.centry.web;
 
+import com.jayway.jsonpath.JsonPath;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Anonymous unless a test says otherwise: these assets must load on the login page.
@@ -28,6 +30,24 @@ class StaticAssetsTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Test
+    void manifestServedAnonymouslyWithStartUrl() throws Exception {
+        String manifest = mockMvc.perform(get("/manifest.webmanifest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Centry"))
+                .andExpect(jsonPath("$.start_url").value("/add"))
+                .andExpect(jsonPath("$.display").value("standalone"))
+                .andExpect(jsonPath("$.theme_color").isString())
+                .andExpect(jsonPath("$.background_color").isString())
+                .andReturn().getResponse().getContentAsString();
+
+        // Every icon the manifest lists is really served, without logging in.
+        for (String src : JsonPath.<List<String>>read(manifest, "$.icons[*].src")) {
+            mockMvc.perform(get(src)).andExpect(status().isOk());
+        }
+        assertThat(JsonPath.<List<String>>read(manifest, "$.icons[*].src")).isNotEmpty();
+    }
 
     @Test
     void vendoredHtmxAndPicoServedAnonymously() throws Exception {
