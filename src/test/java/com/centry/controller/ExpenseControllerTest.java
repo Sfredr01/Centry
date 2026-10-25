@@ -5,6 +5,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import com.centry.dto.ExpenseEvent;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.ExpenseRepository;
+import com.centry.repository.UserRepository;
 import com.centry.service.ExpenseService;
 import com.centry.service.ExpenseService.Recorded;
 import tools.jackson.databind.ObjectMapper;
@@ -18,9 +19,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.OptionalLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,6 +46,9 @@ class ExpenseControllerTest {
 
     @MockitoBean
     private ExpenseRepository expenseRepository;
+
+    @MockitoBean
+    private UserRepository users;
 
     private static ExpenseEntity stored(ExpenseEvent e) {
         return new ExpenseEntity(7L, e.getTransactionId(), e.getMerchant(), e.getAmount(), e.getCategory(),
@@ -110,5 +116,19 @@ class ExpenseControllerTest {
         assertThat(sent.getTransactionId()).isNull();
         assertThat(sent.getTimestamp()).isNull();
         assertThat(sent.getMerchant()).isEqualTo("Coffee Shop");
+    }
+
+    @Test
+    void callerIsPassedToTheServiceAsCreator() throws Exception {
+        when(users.idByUsername("user")).thenReturn(OptionalLong.of(5L));
+        when(expenseService.record(any(), any())).thenReturn(new Recorded(
+                new ExpenseEntity(1L, "x", "Coffee Shop", BigDecimal.ONE, "dining", LocalDateTime.now(), 5L, 5L), true));
+
+        mockMvc.perform(post("/api/v1/expenses").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"merchant\":\"Coffee Shop\",\"amount\":4.50,\"category\":\"dining\"}"))
+                .andExpect(status().isCreated());
+
+        verify(expenseService).record(any(), eq(5L));
     }
 }

@@ -3,7 +3,9 @@ package com.centry;
 import org.springframework.context.annotation.Import;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.BudgetAlertRepository;
+import com.centry.model.Role;
 import com.centry.repository.ExpenseRepository;
+import com.centry.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -89,6 +92,12 @@ class ExpenseApiTest {
     @Autowired
     private BudgetAlertRepository budgetAlertRepository;
 
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private JdbcClient jdbc;
+
     // Alerts are deduplicated per category and month, so every test starts from no spend and no alerts.
     @BeforeEach
     void freshBudgetState() throws Exception {
@@ -113,6 +122,47 @@ class ExpenseApiTest {
         assertThat(row.merchant()).isEqualTo("Cafe");
         assertThat(row.amount()).isEqualByComparingTo("4.50");
         assertThat(row.category()).isEqualTo("misc");
+    }
+
+    private long adminId() {
+        return users.idByUsername(AdminBasicAuth.USERNAME).orElseThrow();
+    }
+
+    @Test
+    void apiDefaultsSpentByToCaller() throws Exception {
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"tx-me\",\"merchant\":\"Cafe\",\"amount\":4.50,\"category\":\"misc\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.spentBy").value(adminId()))
+                .andExpect(jsonPath("$.createdBy").value(adminId()));
+    }
+
+    @Test
+    void explicitSpentByIsStoredButCreatorIsAlwaysTheCaller() throws Exception {
+        long kid = users.insert("apitest-kid", "Kid", null, Role.MEMBER, LocalDateTime.of(2026, 1, 1, 0, 0)).id();
+        try {
+            // createdBy in the body is not part of the contract and must not be honoured.
+            mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"transactionId\":\"tx-kid\",\"merchant\":\"Cafe\",\"amount\":4.50,"
+                                    + "\"category\":\"misc\",\"spentBy\":" + kid + ",\"createdBy\":" + kid + "}"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.spentBy").value(kid))
+                    .andExpect(jsonPath("$.createdBy").value(adminId()));
+        } finally {
+            expenseRepository.deleteAll();
+            jdbc.sql("DELETE FROM users WHERE id = ?").param(kid).update();
+        }
+    }
+
+    @Test
+    void unknownSpentBy400() throws Exception {
+        mockMvc.perform(post("/api/v1/expenses").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"merchant\":\"Cafe\",\"amount\":4.50,\"category\":\"misc\",\"spentBy\":999999}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.errors.spentBy").value("no household member with id 999999"));
+        assertThat(expenseRepository.count()).isZero();
     }
 
     @Test
