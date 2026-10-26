@@ -1,0 +1,18 @@
+# Test override used by scripts/smoke.sh: builds the image from source and adds a local ntfy server.
+services:
+  app:
+    build:
+      context: ${CENTRY_BUILD_CONTEXT:-.}
+    image: centry:smoke
+    pull_policy: never
+    environment:
+      CENTRY_NOTIFY_NTFY_URL: http://ntfy
+      CENTRY_NOTIFY_NTFY_TOPIC: centry-smoke
+    depends_on:
+      - ntfy
+
+  ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    command: serve
+    ports:
+      - "127.0.0.1:${CENTRY_NTFY_PORT:-18080}:80"

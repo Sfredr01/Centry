@@ -58,3 +58,5 @@ application-local.properties
 *.db
 *.db.mv.db
 *.trace.db
+# Real secrets live in .env next to the compose file; only the template is tracked.
+.env

@@ -1,288 +1,204 @@
-Centry
+# Centry
 
-Smart Expense & Subscription Guardian — lightweight Spring Boot + Kafka backend
+Centry is a family expense tracker and budget guard. It runs as one Spring Boot container on a Raspberry Pi
+at home, and you use it from a phone or laptop.
 
-## Description
+- Quick-add form, installable as a home-screen app (PWA), for logging a purchase in a few taps.
+- Monthly budgets per category, with a bar on the dashboard.
+- One-time WARN (at the warning percent, default 80%) and EXCEEDED (at 100%) alerts per category and month, sent
+  to ntfy or a Discord/Slack-style webhook. Failed deliveries are retried for up to 24 hours.
+- Who spent what: each expense is attributed to a household member, and the dashboard filters by member.
+- Roles: an admin manages members and budgets. A member adds expenses and edits or deletes only the ones they
+  created. Members without a password can be picked as the spender but cannot log in.
+- Optional Kafka ingest, off by default.
 
-Centry is a small Spring Boot service that demonstrates an event-driven infrastructure for capturing, publishing, and consuming expense-related events. The project pairs a REST API for recording expenses with Kafka-based producers and consumers so you can observe and react to financial events in real time. The codebase is intentionally minimal so it can be hosted on constrained hardware (for example, a Raspberry Pi) or used as a local development sandbox.
+Centry is for a home LAN or a tailnet. Read [SECURITY.md](SECURITY.md) before you expose it anywhere.
 
-Key features
+## Requirements
 
-- REST endpoint to submit expense events
-- Kafka producer that publishes each expense as an event
-- Kafka consumer that demonstrates processing of expense events
-- Simple, configurable Spring Boot setup and sensible defaults for local development
-
-## Getting started
-
-Prerequisites
-
-- Java 21 or newer (bytecode targets Java 21, see `build.gradle`)
-- Gradle wrapper (included) — `./gradlew`
-- Docker and Docker Compose (recommended for running Kafka locally)
-
-Running with Docker Compose (recommended)
-
-1. Start Kafka (KRaft single-node) via Docker Compose:
+- Raspberry Pi 4 or 5 with 2 GB RAM or more, running 64-bit Raspberry Pi OS.
+- A USB SSD is recommended over an SD card. Centry writes to SQLite on every expense, and SD cards wear out
+  under frequent small writes.
+- Docker Engine with the Compose plugin:
 
 ```bash
-docker-compose up -d
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"
+# Log out and back in so the group change applies.
 ```
 
-The included `docker-compose.yml` uses the `confluentinc/cp-kafka` image configured for single-node KRaft mode (no Zookeeper required).
-
-2. Build and run the application:
+## Install
 
 ```bash
-./gradlew bootRun
+sudo mkdir -p /opt/centry && sudo chown "$USER" /opt/centry
+git clone --depth 1 https://github.com/Sfredr01/Centry.git /opt/centry
+cd /opt/centry
+cp .env.example .env
+chmod 600 .env
 ```
 
-3. Submit a test expense (example):
+Edit `.env`:
+
+1. Set `CENTRY_ADMIN_PASSWORD` to a passphrase of at least 12 characters.
+2. Set `CENTRY_TAG` to a commit tag such as `sha-<40 hex characters>`. Find one on the repository's Packages
+   page (`ghcr.io/sfredr01/centry`) or in the run summary of the Deploy workflow for the commit you want. Do not
+   use `latest`: the tag is what makes upgrades and rollbacks predictable.
+3. Set `TZ` to your household time zone, for example `America/Chicago`. It decides which month a budget counts
+   an expense in; the app clock follows it.
+
+Create the data directory, owned by the container user (uid and gid 10001), then start Centry:
 
 ```bash
-curl -u admin -X POST http://localhost:8080/api/v1/expenses \
-	-H "Content-Type: application/json" \
-	-d '{"merchant":"Chipotle","amount":14.50,"category":"Dining"}'
+sudo mkdir -p /opt/centry/data && sudo chown -R 10001:10001 /opt/centry/data
+docker compose up -d
+curl localhost:8080/actuator/health
 ```
 
-## First run / login
+The health check should print `{"status":"UP"}`. The database is `/opt/centry/data/centry.db`.
 
-Every endpoint except `GET /actuator/health` needs a login. On the first start with an empty database the app
-creates an admin from `CENTRY_ADMIN_PASSWORD` (at least 12 characters; user name from `CENTRY_ADMIN_USERNAME`,
-default `admin`). With no users and no password it refuses to start. Once any user exists the variable is
-ignored and never overwrites anything.
+If the image is in a private package, run `docker login ghcr.io` on the Pi first.
+
+## First login and household members
+
+Open `http://<pi-address>:8080/` and sign in as `admin` (or `CENTRY_ADMIN_USERNAME`) with the password from
+`.env`. The admin password is read only while no users exist, so changing it later does not change the account.
+
+Add a member with the API. This example asks for the admin password instead of putting it on the command line:
 
 ```bash
-CENTRY_ADMIN_PASSWORD='a long passphrase' ./gradlew bootRun
-# Docker: copy .env.example to .env and set CENTRY_ADMIN_PASSWORD (docker-compose.prod.yml requires it)
+curl -u admin -H 'Content-Type: application/json' \
+  -d '{"username":"sam","displayName":"Sam","role":"MEMBER"}' \
+  http://localhost:8080/api/v1/users
 ```
 
-- **Browsers** sign in on `/login` (form login, optional "remember me" for 30 days; tokens are stored in the
-  database and survive restarts). Anonymous page requests redirect to `/login`.
-- **Scripts and phone shortcuts** use HTTP Basic on `/api/**`: `curl -u admin:... http://localhost:8080/api/v1/budgets`.
-  Unauthenticated API calls get a plain `401` with no `WWW-Authenticate` header, so browsers never pop up a
-  Basic prompt or cache credentials.
-- **Roles:** `ADMIN` can do everything. `MEMBER` can record expenses and read budgets and the dashboard page, but
-  cannot change budgets (API or the Budgets page) or manage users.
-- **Users** (admin only): `POST /api/v1/users` with `{"username","displayName","password"?,"role"}` and
-  `GET /api/v1/users`. Leave out `password` for a household member who cannot log in (for example a child).
-  Passwords are at least 12 characters. Changing passwords and deleting users are not available yet.
-- **HTTPS:** the session cookie is `HttpOnly` and `SameSite=Lax`. Plain HTTP is common on a LAN, so `Secure` is off
-  by default. If you put the app behind HTTPS, set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`. Tailscale or a Caddy
-  reverse proxy is the easiest way to get HTTPS at home.
-- Only `/actuator/health` is exposed, and it shows just the status (the Docker healthcheck uses it).
+Leave out `password` to create a member who can be picked as a spender but cannot sign in. To let someone sign
+in, include a `password` of at least 12 characters. Use `"role":"ADMIN"` for a second admin.
 
-## Web UI
+## Use it on a phone
 
-A phone-first UI is served by the same app (server-rendered Thymeleaf, [htmx](https://htmx.org) and
-[Pico.css](https://picocss.com), both vendored under `src/main/resources/static/vendor/`; nothing is loaded from a
-CDN and there is no Node toolchain). Sign in on `/login`, then:
+Phone browsers offer "Add to Home Screen" only for HTTPS sites. For access away from home, use one of these:
 
-- `/add` (the installed app's start page): amount, category, optional merchant and date. Saving twice (a double
-  tap) stores one expense. Without JavaScript the form still works.
-- `/`: this month's budget bars and the 20 most recent expenses.
-- `/budgets`: budgets with their status. Admins can add, edit and delete them; members see a read-only table.
+- **Tailscale (recommended):** install Tailscale on the Pi and your phone, then run
+  `sudo tailscale serve --bg http://localhost:8080`. Open the `https://<machine>.<tailnet>.ts.net` address it prints.
+- **Caddy:** point a domain name you control at the Pi and reverse-proxy it to `localhost:8080`. Caddy gets the
+  certificate.
 
-Add it to the home screen to get the standalone app (`/manifest.webmanifest`). There is no service worker, so it
-needs a connection. The old `/api/v1/dashboard/*` JSON endpoints are gone; use `GET /api/v1/budgets` for budget
-status.
+Then set `SERVER_SERVLET_SESSION_COOKIE_SECURE=true` in `.env` and run `docker compose up -d`. Sign-in fails over
+plain HTTP while this is `true`, so set it only once you use HTTPS.
 
-## Budgets
-
-Budgets are stored in the database and managed over the API, not in YAML. Category names are matched
-case-insensitively after trimming (`Groceries`, ` groceries ` and `GROCERIES` are one budget).
-
-```bash
-# Create or replace a budget; warnPercent is optional (default 80, allowed 1-99)
-curl -u admin -X PUT http://localhost:8080/api/v1/budgets/groceries \
-	-H "Content-Type: application/json" \
-	-d '{"monthlyLimit":600.00,"warnPercent":80}'
-
-# All budgets with this month's spend and level (OK, WARNING_EXCEEDED, LIMIT_EXCEEDED)
-curl -u admin http://localhost:8080/api/v1/budgets
-
-# Remove a budget
-curl -u admin -X DELETE http://localhost:8080/api/v1/budgets/groceries
-```
-
-Spend is summed from the stored expenses for the calendar month of each expense, so it survives restarts. A
-category without a budget never alerts. Each category raises at most one warning and one limit alert per month;
-the warning amount is `monthlyLimit * warnPercent / 100`, rounded up to a whole cent.
+In the phone browser, open the HTTPS address and use "Add to Home Screen".
 
 ## Notifications
 
-Budget alerts are pushed to every channel that is configured; with none configured they are only logged.
+Both channels are optional. Set the variables in `.env`, then run `docker compose up -d`.
 
-| Property | Meaning |
-| --- | --- |
-| `centry.notify.ntfy.url`, `centry.notify.ntfy.topic` | Publish to `{url}/{topic}` on an [ntfy](https://ntfy.sh) server (both required) |
-| `centry.notify.ntfy.token` | Optional; sent as `Authorization: Bearer <token>` |
-| `centry.notify.webhook.url` | Discord/Slack-style webhook (`{"content": ..., "text": ...}`) |
-| `centry.notify.retry-interval` | Delay between retry sweeps, default `PT5M` |
-| `centry.notify.connect-timeout` / `centry.notify.read-timeout` | Default `PT5S` / `PT10S` |
+- **ntfy:** `CENTRY_NOTIFY_NTFY_URL` (for example `https://ntfy.sh`), `CENTRY_NOTIFY_NTFY_TOPIC`, and optionally
+  `CENTRY_NOTIFY_NTFY_TOKEN` for a protected topic. Anyone who knows a public ntfy topic name can read it, so
+  choose a long random name.
+- **Webhook:** `CENTRY_NOTIFY_WEBHOOK_URL`. The payload works with both Discord and Slack.
 
-Each alert row records `notified_at` once every configured channel accepted it. A failed delivery leaves it
-empty, and a sweeper retries those alerts every `retry-interval`: it waits one minute after the alert was
-raised and gives up on alerts older than 24 hours. Delivery is tracked per alert, so when one channel fails
-the retry re-sends to all of them and another channel may get a duplicate. Subscription alerts are not
-notified yet.
+## Upgrade and rollback
 
-The old `centry.budget.webhook-url` property is now `centry.notify.webhook.url` (no alias).
-
-## KRaft (Confluent) usage & troubleshooting
-
-- Check Kafka container logs while it starts:
+Run upgrades from the install directory:
 
 ```bash
-docker-compose logs -f kafka
+cd /opt/centry
+scripts/upgrade.sh sha-<new 40 hex characters>
 ```
 
-- Check broker readiness (healthcheck or API versions):
+The script:
+
+1. Pulls the new image first. If the pull fails, nothing has changed.
+2. Stops Centry and copies the database to `/opt/centry/data/backups/centry-<UTC time>-<old tag>.db`. It keeps the
+   newest 14 backups.
+3. Writes the new tag to `.env` and starts Centry.
+4. Waits up to `CENTRY_HEALTH_TIMEOUT` seconds (default 120) for `/actuator/health` to report `UP`.
+5. If the health check times out, restores the backup, restores the old tag, starts the old version again, and
+   exits with an error.
+
+To roll back by hand, stop Centry, restore a backup, and start the old tag:
 
 ```bash
-docker exec -it kafka bash -c "kafka-broker-api-versions --bootstrap-server localhost:9092"
+cd /opt/centry
+docker compose stop app
+sudo cp data/backups/centry-<UTC time>-<old tag>.db data/centry.db
+sudo rm -f data/centry.db-wal data/centry.db-shm
+sudo chown 10001:10001 data/centry.db
+# Set CENTRY_TAG in .env to the old tag, then:
+docker compose up -d
 ```
 
-- If the broker isn't reachable from other hosts, adjust `KAFKA_ADVERTISED_LISTENERS` in `docker-compose.yml` to an accessible host/IP and restart the compose stack.
-- To stop and remove the stack:
+## Optional: Kafka
+
+Kafka is off by default. Add the override file to run a single-node Kafka broker next to Centry:
 
 ```bash
-docker-compose down
+sudo mkdir -p /opt/centry/data/kafka && sudo chown -R 1000:1000 /opt/centry/data/kafka
+docker compose -f docker-compose.yml -f docker-compose.kafka.yml up -d
 ```
 
-- Common issues:
-  - Memory or architecture: the Confluent images are x86_64; use an ARM-compatible image on Raspberry Pi or run on an x86 host.
-  - Port conflicts: ensure `9092` is free on the host or map to a different external port.
-  - Topic creation/permissions: set `KAFKA_AUTO_CREATE_TOPICS_ENABLE` to `true` (already enabled) or pre-create topics using `kafka-topics`.
+The broker runs as uid 1000, so its data directory needs that owner. Upgrades must include the override too:
+`COMPOSE_FILES="-f docker-compose.yml -f docker-compose.kafka.yml" scripts/upgrade.sh sha-...`.
 
-## Tips
+With the override, Centry consumes JSON expenses from the `raw-expenses` topic and publishes budget alerts to
+`budget-alerts`. Malformed messages go to `raw-expenses.DLT`. The broker's heap is capped at 256 MB, but budget
+roughly 300 MB or more of RAM for Kafka on top of Centry. The broker is reachable only on `127.0.0.1:9092`, and it
+has no authentication. It advertises itself as `kafka:9092`, so a producer on the Pi itself needs a
+`127.0.0.1 kafka` line in `/etc/hosts`.
 
-- Use `kcat` or `kafka-console-consumer.sh` to view topic messages for quick verification.
-- For CI, prefer an embedded Kafka test container (e.g., Testcontainers) instead of Docker Compose.
+## API reference
 
-Running locally without Docker
+All `/api/**` calls use HTTP Basic authentication with a username and password. Anonymous calls get `401`.
 
-1. Make sure a Kafka broker is reachable (set bootstrap servers in `application.yml` or via environment variable)
-2. Build and run the app:
+| Method and path | Who | Purpose |
+|---|---|---|
+| `POST /api/v1/expenses` | admin, member | Record an expense. Returns `201` with a `Location`, or `200` for a replay. |
+| `GET /api/v1/expenses/{id}` | admin, member | Read one expense. |
+| `GET /api/v1/budgets` | admin, member | List budgets with the current month's spend. |
+| `PUT /api/v1/budgets/{category}` | admin | Create or change a budget. |
+| `DELETE /api/v1/budgets/{category}` | admin | Remove a budget. |
+| `GET /api/v1/users` | admin | List members. |
+| `POST /api/v1/users` | admin | Add a member. |
+
+Record an expense. `spentBy` is a member id from `GET /api/v1/users`. It is optional and defaults to the caller.
+`transactionId` is optional. Send the same value again to avoid a duplicate, and you get the stored expense back.
 
 ```bash
-./gradlew build
-./gradlew bootRun
+curl -u sam -H 'Content-Type: application/json' \
+  -d '{"merchant":"Corner Market","amount":12.50,"category":"Groceries","spentBy":2}' \
+  http://localhost:8080/api/v1/expenses
 ```
 
-## Configuration
-
-All Spring and Kafka configuration is in `src/main/resources/application.yml`. Override settings with `--spring.profiles.active=dev` or environment variables.
-
-Useful Gradle tasks
-
-- `./gradlew bootRun` — Run the application
-- `./gradlew build` — Build the JAR
-- `./gradlew test` — Run tests
-
-Project structure (high level)
-
-- `src/main/java/com/centry/controller` — REST controllers (expense endpoint)
-- `src/main/java/com/centry/service` — Kafka producer/consumer and application logic
-- `src/main/resources` — application.yml, templates, static assets
-
-## Contributing
-
-1. Fork the repo and create a feature branch
-2. Add tests for new behavior
-3. Open a pull request with a clear description
-
-## License
-
-Add a license file to the project root (for example, MIT) if you intend to open source this project.
-
-## Next steps
-
-- Add examples for testing with an embedded Kafka broker for CI
-- Add health checks and metrics
-
-## Deploying to Raspberry Pi
-
-This project runs on Raspberry Pi-class hardware with a compatible Java runtime. There are two deployment approaches: run the service directly on the Pi (recommended for small setups) or run the service in containers and use an ARM-friendly Kafka distribution.
-
-1. Native JVM deployment (simple)
-
-- Build the runnable JAR on your development machine (or build on the Pi):
+Set a budget of $600 with a warning at 80%. Category names match ignoring case and surrounding spaces:
 
 ```bash
-./gradlew clean bootJar
+curl -u admin -X PUT -H 'Content-Type: application/json' \
+  -d '{"monthlyLimit":600,"warnPercent":80}' \
+  http://localhost:8080/api/v1/budgets/Groceries
 ```
 
-- Copy the JAR to the Pi:
+Expenses are edited and deleted in the web UI, not through the API.
+
+## Development
+
+You need JDK 21.
 
 ```bash
-scp build/libs/*.jar pi@raspberrypi:/home/pi/centry/centry.jar
+./gradlew check                            # tests, with 100% line and branch coverage
+CENTRY_ADMIN_PASSWORD='a-long-test-pass' ./gradlew bootRun
 ```
 
-- Install a JDK on the Pi (Debian/Raspbian example):
+`bootRun` stores its database in `./data/centry.db`. Run the end-to-end smoke test with Docker and curl:
 
 ```bash
-sudo apt update
-sudo apt install -y openjdk-21-jdk
+scripts/smoke.sh
 ```
 
-- Run manually for testing:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
 
-```bash
-java -jar /home/pi/centry/centry.jar --spring.profiles.active=prod
-```
+## Links
 
-- Create a `systemd` service to run at boot (`/etc/systemd/system/centry.service`):
-
-```ini
-[Unit]
-Description=Centry Spring Boot Service
-After=network.target
-
-[Service]
-User=pi
-WorkingDirectory=/home/pi/centry
-ExecStart=/usr/bin/java -jar /home/pi/centry/centry.jar --spring.profiles.active=prod
-SuccessExitStatus=143
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable centry
-sudo systemctl start centry
-```
-
-2. Containerized deployment on Raspberry Pi (ARM)
-
-- Confluent `cp-kafka` images are x86-only and won't run on ARM. Options for an ARM-compatible broker:
-  - Use Redpanda (Kafka API compatible) — multi-arch and lightweight; recommended for Pi.
-  - Use Bitnami Kafka images (may support ARM depending on tag) with Zookeeper.
-
-Redpanda single-node example (recommended for Raspberry Pi):
-
-```yaml
-version: '3.8'
-services:
-	redpanda:
-		image: vectorized/redpanda:latest
-		command: ["redpanda", "start", "--overprovisioned", "--smp 1", "--memory 512M", "--reserve-memory 0M", "--node-id 0"]
-		ports:
-			- "9092:9092"
-		volumes:
-			- ./redpanda-data:/var/lib/redpanda/data
-```
-
-Start the broker on the Pi and then run the service (native or container). Point the app's Kafka bootstrap servers to the Pi's broker address.
-
-Notes & tips
-
-- Verify your Pi architecture (`uname -m`) and install a matching JDK (aarch64 vs armv7).
-- If you cannot run the broker on the Pi, run Kafka/Redpanda on another host and point the app at that address.
-- For production on Pi-class hosts, monitor memory and disk usage and limit JVM heap size via `-Xmx`.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to change the code
+- [SECURITY.md](SECURITY.md): how to report a vulnerability, and the deployment security model
+- [LICENSE](LICENSE): MIT
+- [docs/ROADMAP.md](docs/ROADMAP.md): plans and history

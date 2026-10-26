@@ -1,36 +1,24 @@
-version: "3.8"
-
+# The default Centry stack: the app only. Copy .env.example to .env and set CENTRY_TAG and CENTRY_ADMIN_PASSWORD.
+# Optional Kafka: docker compose -f docker-compose.yml -f docker-compose.kafka.yml up -d
 services:
-  kafka:
-    image: confluentinc/cp-kafka:7.4.1
-    container_name: kafka
-    hostname: kafka
-    ports:
-      - "9092:9092"
+  app:
+    image: ${CENTRY_IMAGE:-ghcr.io/sfredr01/centry}:${CENTRY_TAG:?set CENTRY_TAG in .env}
+    container_name: centry
+    restart: unless-stopped
+    env_file: .env
     environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9092"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_NUM_PARTITIONS: 3
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${CENTRY_PORT:-8080}:8080"
+    volumes:
+      # Must be owned by 10001:10001 (the container user).
+      - ${CENTRY_DATA:-/opt/centry/data}:/data
+    deploy:
+      resources:
+        limits:
+          memory: 400M
     healthcheck:
-      test:
-        [
-          "CMD",
-          "bash",
-          "-c",
-          "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1",
-        ]
-      interval: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
       timeout: 5s
-      retries: 10
+      retries: 5
