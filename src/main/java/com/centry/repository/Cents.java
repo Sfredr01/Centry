@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 
 /** Conversions at the persistence boundary: money as integer cents, timestamps as ISO-8601 text. */
@@ -27,6 +28,16 @@ final class Cents {
 
     static String toText(LocalDateTime timestamp) {
         return ISO.format(timestamp);
+    }
+
+    /** Inclusive lower bound of a month's expenses, formatted like stored timestamps. */
+    static String monthStart(YearMonth month) {
+        return toText(month.atDay(1).atStartOfDay());
+    }
+
+    /** Exclusive upper bound of a month's expenses: the first instant of the next month. */
+    static String monthEnd(YearMonth month) {
+        return monthStart(month.plusMonths(1));
     }
 
     static LocalDateTime fromText(String text) {

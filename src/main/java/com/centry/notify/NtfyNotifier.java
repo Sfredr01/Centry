@@ -1,7 +1,5 @@
 package com.centry.notify;
 
-import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetLevel;
 import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -20,17 +18,26 @@ public class NtfyNotifier implements Notifier {
     }
 
     @Override
-    public void send(BudgetAlertEvent alert) {
-        boolean limit = alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED;
+    public void send(Notification notification) {
         RestClient.RequestBodySpec request = client.post()
                 .uri(endpoint)
                 .contentType(MediaType.TEXT_PLAIN)
-                .header("Title", HttpSupport.headerValue("Centry budget alert: " + alert.getCategory()))
-                .header("Priority", limit ? "5" : "3")
-                .header("Tags", limit ? "rotating_light" : "warning");
+                .header("Title", HttpSupport.headerValue(notification.title()))
+                .header("Priority", priority(notification.priority()));
+        if (!notification.tags().isEmpty()) {
+            request.header("Tags", String.join(",", notification.tags()));
+        }
         if (StringUtils.hasText(token)) {
             request.header("Authorization", "Bearer " + token);
         }
-        HttpSupport.execute(request.body(alert.getMessage()));
+        HttpSupport.execute(request.body(notification.body()));
+    }
+
+    private static String priority(Notification.Priority priority) {
+        return switch (priority) {
+            case LOW -> "2";
+            case DEFAULT -> "3";
+            case HIGH -> "5";
+        };
     }
 }

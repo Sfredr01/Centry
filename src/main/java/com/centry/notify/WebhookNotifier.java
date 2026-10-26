@@ -1,7 +1,5 @@
 package com.centry.notify;
 
-import com.centry.model.BudgetAlertEvent;
-import com.centry.model.BudgetLevel;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 
@@ -19,13 +17,20 @@ public class WebhookNotifier implements Notifier {
     }
 
     @Override
-    public void send(BudgetAlertEvent alert) {
-        String text = String.format("%s **%s**: %s",
-                alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED ? "🚨" : "⚠️",
-                alert.getAlertLevel(), alert.getMessage());
+    public void send(Notification notification) {
+        String text = String.format("%s **%s**: %s", emoji(notification.priority()), notification.title(),
+                notification.body());
         HttpSupport.execute(client.post()
                 .uri(url)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("content", text, "text", text)));
+    }
+
+    private static String emoji(Notification.Priority priority) {
+        return switch (priority) {
+            case LOW -> "ℹ️";
+            case DEFAULT -> "⚠️";
+            case HIGH -> "🚨";
+        };
     }
 }

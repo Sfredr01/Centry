@@ -110,7 +110,7 @@ class AlertDispatcherTest {
         long id = raiseAlert(true);
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(notifiedAt(id)).isPresent());
-        assertThat(fakeA.sent()).singleElement().extracting(BudgetAlertEvent::getAlertId).isEqualTo(id);
+        assertThat(fakeA.sent()).singleElement().extracting(Notification::body).isEqualTo("msg");
         assertThat(fakeB.sent()).hasSize(1);
     }
 

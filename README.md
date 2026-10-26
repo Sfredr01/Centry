@@ -99,6 +99,20 @@ Both channels are optional. Set the variables in `.env`, then run `docker compos
   choose a long random name.
 - **Webhook:** `CENTRY_NOTIFY_WEBHOOK_URL`. The payload works with both Discord and Slack.
 
+### Monthly digest
+
+On the 1st of each month at 08:00 household time (`TZ`), one low-priority notification summarises the month before:
+the total spent, each budgeted category against its limit (`Groceries $512.40 / $600 (85%)`), spend with no
+budget, the top three merchants, and spend per household member (expenses without a member count as
+"Unassigned"). A month without expenses still sends "No expenses recorded in <Month>", so you can see the job
+runs.
+
+- Each month is sent once, even across restarts. If a channel fails, the digest is retried every few minutes for
+  24 hours, like budget alerts.
+- If the app was down at 08:00, the digest goes out within the hour after it is back up, up to three days later.
+- `CENTRY_DIGEST_CRON` changes the schedule (Spring cron with seconds, default `0 0 8 1 * *`).
+  `CENTRY_DIGEST_ENABLED=false` turns the digest off.
+
 ## Upgrade and rollback
 
 Run upgrades from the install directory:

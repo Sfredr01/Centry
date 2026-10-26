@@ -45,9 +45,9 @@ class WebhookNotifierTest {
         return notifier(server.url() + "/hook", Duration.ofSeconds(5), Duration.ofSeconds(10));
     }
 
-    private static BudgetAlertEvent alert(BudgetLevel level, String message) {
-        return new BudgetAlertEvent("food", new BigDecimal("120.00"), new BigDecimal("100.00"),
-                new BigDecimal("80.00"), level, message);
+    private static Notification alert(BudgetLevel level, String message) {
+        return AlertDispatcher.toNotification(new BudgetAlertEvent("food", new BigDecimal("120.00"),
+                new BigDecimal("100.00"), new BigDecimal("80.00"), level, message));
     }
 
     @Test
@@ -61,10 +61,18 @@ class WebhookNotifierTest {
         assertThat(limit.path()).isEqualTo("/hook");
         assertThat(limit.header("Content-Type")).startsWith("application/json");
         JsonNode json = mapper.readTree(limit.body());
-        assertThat(json.get("content").asText()).isEqualTo("🚨 **LIMIT_EXCEEDED**: Over budget");
-        assertThat(json.get("text").asText()).isEqualTo("🚨 **LIMIT_EXCEEDED**: Over budget");
+        assertThat(json.get("content").asText()).isEqualTo("🚨 **Centry budget alert: food**: Over budget");
+        assertThat(json.get("text").asText()).isEqualTo("🚨 **Centry budget alert: food**: Over budget");
         assertThat(mapper.readTree(server.requests().get(1).body()).get("content").asText())
-                .isEqualTo("⚠️ **WARNING_EXCEEDED**: Getting close");
+                .isEqualTo("⚠️ **Centry budget alert: food**: Getting close");
+    }
+
+    @Test
+    void lowPriorityUsesInfoEmoji() throws Exception {
+        notifier().send(new Notification("Summary", "All quiet", Notification.Priority.LOW, java.util.List.of()));
+
+        assertThat(mapper.readTree(server.requests().get(0).body()).get("text").asText())
+                .isEqualTo("ℹ️ **Summary**: All quiet");
     }
 
     // Some webhook endpoints reject chunked uploads, so the body must go out with a Content-Length.
