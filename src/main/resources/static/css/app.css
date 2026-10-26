@@ -229,3 +229,15 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .budget form { margin-bottom: .5rem; }
 [data-level="WARNING_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--ochre); }
 [data-level="LIMIT_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--rust); }
+
+/* ---- Icons: fragments/icons.html, drawn in the text colour ---- */
+.icon { width: 24px; height: 24px; flex: none; vertical-align: middle; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* A control that is only an icon: 44px target, named by aria-label and title. */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: var(--tap-target); height: var(--tap-target); margin: 0; padding: 0; border: 0;
+    border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); }
+.icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
+.icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* An icon next to a word inside a normal button or link. */
+button .icon, [role="button"] .icon { width: 20px; height: 20px; margin-inline-end: var(--space-2); vertical-align: -4px; }
