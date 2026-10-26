@@ -126,11 +126,11 @@ class DashboardPageTest {
         spendBy(kid, "Market", "Food", "40.00", LocalDateTime.of(2026, 2, 28, 23, 59));
 
         Element summary = dashboard("/").selectFirst("#month-summary");
-        assertThat(summary.select(".amount").text()).isEqualTo("97.50");
-        assertThat(summary.text()).contains("March").contains("of 150.00 budgeted");
+        assertThat(summary.select(".amount").text()).isEqualTo("$97.50");
+        assertThat(summary.text()).contains("March").contains("of $150.00 budgeted");
 
         // Scoped to one member like the rest of the page.
-        assertThat(dashboard("/?member=" + kid).select("#month-summary .amount").text()).isEqualTo("12.50");
+        assertThat(dashboard("/?member=" + kid).select("#month-summary .amount").text()).isEqualTo("$12.50");
     }
 
     @Test
@@ -138,7 +138,7 @@ class DashboardPageTest {
         spend("Market", "Food", "5.00", MARCH_2);
 
         Element summary = dashboard().selectFirst("#month-summary");
-        assertThat(summary.select(".amount").text()).isEqualTo("5.00");
+        assertThat(summary.select(".amount").text()).isEqualTo("$5.00");
         assertThat(summary.text()).doesNotContain("budgeted");
     }
 
@@ -154,12 +154,41 @@ class DashboardPageTest {
         var bars = dashboard().select("#budget-bars .budget-bar");
 
         assertThat(bars.eachText()).hasSize(3);
-        assertThat(bars.get(0).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
-        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("15.00 left");
-        assertThat(bars.get(1).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
-        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("12.75 over");
+        // Worst first: over limit, near limit, on track.
+        assertThat(bars.get(0).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
+        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("$12.75 over");
+        assertThat(bars.get(1).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
+        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("$15.00 left");
         assertThat(bars.get(2).select(".pill[data-level=OK]").text()).isEqualTo("On track");
-        assertThat(bars.get(2).select(".remaining").text()).isEqualTo("190.00 left");
+        assertThat(bars.get(2).select(".remaining").text()).isEqualTo("$190.00 left");
+    }
+
+    @Test
+    void moneyShowsWithDollarSignButMachineValuesStayRaw() throws Exception {
+        budgets.upsert("food", new BigDecimal("1234.00"), 80);
+        spend("Market", "food", "1000.50", MARCH_2);
+
+        Document page = dashboard();
+
+        assertThat(page.selectFirst("#budget-bars .figure").text()).isEqualTo("$1,000.50 of $1,234.00");
+        assertThat(page.selectFirst("progress").attr("value")).isEqualTo("1000.50");
+        assertThat(page.selectFirst("progress").attr("max")).isEqualTo("1234.00");
+        assertThat(page.selectFirst("#recent-expenses .amount").text()).isEqualTo("$1,000.50");
+    }
+
+    @Test
+    void budgetBarsWorstFirst() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("50.00"), 80);
+        budgets.upsert("home", new BigDecimal("200.00"), 80);
+        budgets.upsert("bills", new BigDecimal("100.00"), 80);
+        spend("Market", "food", "85.00", MARCH_2);
+        spend("Cinema", "fun", "62.75", MARCH_2);
+        spend("Hardware", "home", "10.00", MARCH_2);
+        spend("Power", "bills", "50.00", MARCH_2);
+
+        assertThat(dashboard().select("#budget-bars .budget-bar strong").eachText())
+                .containsExactly("fun", "food", "bills", "home");
     }
 
     @Test
@@ -223,7 +252,7 @@ class DashboardPageTest {
     }
 
     @Test
-    void editLinkOnlyWhereTheViewerMayEdit() throws Exception {
+    void editIconOnlyWhereTheViewerMayEdit() throws Exception {
         ExpenseEntity mine = expenses.save(new ExpenseEntity(null, "mine", "Market", new BigDecimal("1.00"), "Food",
                 MARCH_2, mom, mom));
         ExpenseEntity kids = expenses.save(new ExpenseEntity(null, "kids", "Candy", new BigDecimal("2.00"), "Food",
@@ -231,22 +260,40 @@ class DashboardPageTest {
         ExpenseEntity legacy = expenses.save(new ExpenseEntity(null, "old", "Old", new BigDecimal("3.00"), "Food",
                 MARCH_2.plusHours(2), null, null));
 
-        // Mom: only the one she created. The link sits on the row's meta line.
+        // Mom: only the one she created, as a pencil at the row's end and not a word on the meta line.
         Document asMom = dashboard("/");
-        assertThat(asMom.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+        assertThat(asMom.select("#recent-expenses a.icon-btn[href$=/edit]").eachAttr("href"))
                 .containsExactly("/expenses/" + mine.id() + "/edit");
+        Element pencil = asMom.selectFirst("#recent-expenses a.icon-btn[href$=/edit]");
+        assertThat(pencil.attr("aria-label")).isEqualTo("Edit Market").isEqualTo(pencil.attr("title"));
+        assertThat(pencil.text()).isEmpty();
+        assertThat(pencil.select("svg.icon[aria-hidden=true]")).hasSize(1);
+        assertThat(asMom.select("#recent-expenses .meta a")).isEmpty();
+        // Rows she cannot edit keep an empty slot, so the amounts stay in line.
+        assertThat(asMom.select("#recent-expenses li.expense")).hasSize(3);
+        assertThat(asMom.select("#recent-expenses li.expense .icon-slot")).hasSize(2);
 
         // Admin: every row, including the one with no creator.
         Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk()));
-        assertThat(asAdmin.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+        assertThat(asAdmin.select("#recent-expenses a.icon-btn[href$=/edit]").eachAttr("href"))
                 .containsExactlyInAnyOrder("/expenses/" + mine.id() + "/edit", "/expenses/" + kids.id() + "/edit",
                         "/expenses/" + legacy.id() + "/edit");
     }
 
     @Test
+    void editLabelFallsBackWhenMerchantIsMissing() throws Exception {
+        expenses.save(new ExpenseEntity(null, "nameless", null, new BigDecimal("4.00"), "Food", MARCH_2, null, null));
+
+        Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()));
+
+        assertThat(asAdmin.selectFirst("#recent-expenses a.icon-btn").attr("aria-label")).isEqualTo("Edit expense");
+    }
+
+    @Test
     void afterAnEditOrDeleteTheDashboardSaysSo() throws Exception {
-        assertThat(dashboard("/?edited").select("[role=status]").text()).contains("updated");
+        assertThat(dashboard("/?edited").select(".notice.notice--success[role=status]").text()).contains("updated");
         assertThat(dashboard("/?deleted").select("[role=status]").text()).contains("deleted");
         assertThat(dashboard("/").select("[role=status]")).isEmpty();
     }

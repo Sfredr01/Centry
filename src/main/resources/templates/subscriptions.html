@@ -13,7 +13,7 @@
                 <strong th:text="${s.name}">Netflix</strong>
                 <span th:text="${s.cadence.name() == 'MONTHLY'} ? 'Monthly' : 'Yearly'">Monthly</span>
             </header>
-            <p>About <span th:text="${s.expected}">15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
+            <p>About <span th:text="${@money.format(s.expected)}">$15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
             <div sec:authorize="hasRole('ADMIN')">
                 <form method="post" th:action="@{/subscriptions/{id}/confirm(id=${s.id})}">
                     <button type="submit">Confirm</button>
@@ -33,7 +33,7 @@
                 <strong th:text="${s.name}">Netflix</strong>
                 <span th:text="${s.cadence.name() == 'MONTHLY'} ? 'Monthly' : 'Yearly'">Monthly</span>
             </header>
-            <p><span th:text="${s.expected}">15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
+            <p><span th:text="${@money.format(s.expected)}">$15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
             <div sec:authorize="hasRole('ADMIN')">
                 <form method="post" th:action="@{/subscriptions/{id}(id=${s.id})}">
                     <label>Name <input name="name" required th:value="${s.name}"></label>
@@ -57,7 +57,7 @@
             </div>
         </article>
         <p id="annual-total" th:unless="${confirmed.empty}">
-            About <strong th:text="${annualTotal}">324.88</strong> a year
+            About <strong th:text="${@money.format(annualTotal)}">$324.88</strong> a year
         </p>
     </section>
 

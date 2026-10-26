@@ -12,6 +12,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -60,16 +62,67 @@ class StaticAssetsTest {
     }
 
     @Test
+    void appScriptServedAnonymously() throws Exception {
+        mockMvc.perform(get("/js/app.js"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("aria-busy")))
+                .andExpect(content().string(containsString("DELAY_MS = 300")));
+    }
+
+    @Test
     void noExternalScriptOrStylesheetUrls() throws Exception {
         for (String path : List.of("/login", "/", "/add", "/budgets")) {
             Document page = Html.of(mockMvc.perform(get(path).with(user("admin").roles("ADMIN")))
                     .andExpect(status().isOk()));
             // The pages do load the vendored copies (and not, say, only Spring's generated stylesheet).
             assertThat(page.select("link[rel=stylesheet][href=/vendor/pico.min.css]")).as(path).hasSize(1);
-            for (Element tag : page.select("script[src], link[rel=stylesheet][href]")) {
+            assertThat(page.select("link[rel=preload][as=font][crossorigin]")).as(path).hasSize(2);
+            // Every link (stylesheets, the font preloads) and script stays on this host.
+            for (Element tag : page.select("script[src], link[href]")) {
                 String url = tag.hasAttr("src") ? tag.attr("src") : tag.attr("href");
                 assertThat(url).as(path + " " + tag).startsWith("/").doesNotStartWith("//");
             }
+        }
+    }
+
+    @Test
+    void everyFontInAppCssIsServedAnonymously() throws Exception {
+        String css = mockMvc.perform(get("/css/app.css")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        Matcher fonts = Pattern.compile("url\\(\"\\.\\./vendor/fonts/([^\"]+)\"\\)").matcher(css);
+        int found = 0;
+        while (fonts.find()) {
+            found++;
+            mockMvc.perform(get("/vendor/fonts/" + fonts.group(1))).andExpect(status().isOk());
+        }
+        assertThat(found).isEqualTo(2);
+    }
+
+    @Test
+    void appCssStylesIconsAndTheirButtons() throws Exception {
+        String css = mockMvc.perform(get("/css/app.css")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Without these an inline svg renders at its full size.
+        assertThat(css).contains(".icon {", ".icon-btn {", ".avatar {");
+    }
+
+    @Test
+    void appCssLoadsNothingFromOtherHosts() throws Exception {
+        String css = mockMvc.perform(get("/css/app.css")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(css).doesNotContain("http://", "https://", "url(\"//");
+    }
+
+    @Test
+    void fontLicencesAreShipped() throws Exception {
+        for (String licence : List.of("OFL-Fraunces.txt", "OFL-SourceSans3.txt")) {
+            mockMvc.perform(get("/vendor/fonts/" + licence))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .containsIgnoringCase("SIL OPEN FONT LICENSE"));
         }
     }
 }

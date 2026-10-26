@@ -1,6 +1,12 @@
 /* Centry brand over Pico. Tokens come from the Centry design system (tokens.json); Pico's own variables are
    pointed at them, and the rest of this file holds what Pico has no class for. */
 
+/* Self-hosted (static/vendor/fonts, SIL OFL 1.1); nothing is fetched from another host. Latin subset. */
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url("../vendor/fonts/fraunces-latin-wght-normal.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap;
+    src: url("../vendor/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2"); }
+
 /* ---- Tokens: parchment by day, forest floor by night ---- */
 :root {
     --surface: #f5f1e8;
@@ -39,7 +45,7 @@
     --tap-target: 44px;
     --content-max: 640px;
     --tabbar-height: 64px;
-    /* Fraunces and Source Sans 3 when installed; nothing is fetched, so these fall back to system faces. */
+    /* Vendored faces (see @font-face above); the system faces cover any glyph outside the latin subset. */
     --font-display: "Fraunces", Georgia, serif;
     --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
 }
@@ -137,8 +143,20 @@ main.container { max-width: var(--content-max); }
 .brand { display: flex; align-items: center; gap: var(--space-2); color: var(--ink); text-decoration: none;
     font: 600 22px/28px var(--font-display); }
 .brand img { border-radius: 7px; }
-.signed-in { display: flex; gap: .75rem; align-items: center; margin: 0; }
-.signed-in button { width: auto; margin: 0; padding: .25rem .75rem; white-space: nowrap; }
+
+/* ---- Account menu: initials avatar opening Pico's dropdown, right-aligned (app.js closes it) ---- */
+.account-menu { margin: 0; width: auto; }
+details.dropdown.account-menu > summary:not([role]) { display: inline-flex; align-items: center; justify-content: center;
+    width: var(--tap-target); height: var(--tap-target); margin: 0; padding: 0; border: 0; border-radius: 50%;
+    background: transparent; }
+details.dropdown.account-menu > summary::after { display: none; }
+details.dropdown.account-menu > summary + ul { left: auto; right: 0; min-width: 200px; }
+.account-menu .account-name { font-weight: 600; color: var(--ink); border-bottom: 1px solid var(--line); }
+.account-menu .menu-item { display: flex; align-items: center; width: 100%; min-height: var(--tap-target); margin: 0;
+    padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
+.account-menu form { margin: 0; }
+.avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--bark-soft); color: var(--bark); font: 600 15px/1 var(--font-sans); letter-spacing: .02em; }
 
 /* ---- Bottom tab bar: Dashboard, Add, Budgets ---- */
 body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom)); }
@@ -148,12 +166,10 @@ body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-in
 .tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     min-height: 56px; border-radius: var(--radius-md); color: var(--ink-muted); text-decoration: none;
     font-size: 13px; line-height: 16px; font-weight: 600; }
-.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
-    stroke-linejoin: round; }
 .tabbar a[aria-current="page"] { color: var(--forest); }
 .tabbar a.add { color: var(--on-forest); }
-.tabbar a.add svg { width: 44px; height: 44px; padding: 10px; border-radius: var(--radius-pill); background: var(--forest); }
-.tabbar a.add[aria-current="page"] svg { background: var(--forest-hover); }
+.tabbar a.add .icon { width: 44px; height: 44px; padding: 10px; border-radius: var(--radius-pill); background: var(--forest); }
+.tabbar a.add[aria-current="page"] .icon { background: var(--forest-hover); }
 
 /* ---- Member filter chips: scroll sideways rather than wrap ---- */
 /* The id beats Pico's negative margin on a nav's first list. */
@@ -176,13 +192,12 @@ body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-in
 
 /* ---- Budget bars ---- */
 #budget-bars { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
-.budget-bar { margin: 0; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-.budget-bar label { margin: 0; }
-.budget-bar .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
-.budget-bar .figure { color: var(--ink-muted); font-size: 14px; }
-.budget-bar .figure b { color: var(--ink); font-size: 16px; }
-.budget-bar progress { height: 12px; margin: var(--space-2) 0; border-radius: var(--radius-pill); }
-.budget-bar .foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); }
+.budget-figures { margin: 0; }
+.budget-figures .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.budget-figures .figure { color: var(--ink-muted); font-size: 14px; }
+.budget-figures .figure b { color: var(--ink); font-size: 16px; }
+.budget-figures progress { height: 12px; margin: var(--space-2) 0; border-radius: var(--radius-pill); }
+.budget-foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); }
 /* Pico draws progress with --pico-progress-color, so recolor by budget level. */
 progress[data-level="WARNING_EXCEEDED"] { --pico-progress-color: var(--ochre-fill); }
 progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
@@ -206,8 +221,8 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .expense .merchant { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .expense .meta { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: 14px;
     line-height: 20px; color: var(--ink-muted); }
-.expense .meta a { font-weight: 600; }
 .expense .amount { font-weight: 600; text-align: right; }
+.icon-slot { flex: none; width: var(--tap-target); }
 .tag { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--bark-soft);
     color: var(--bark); font-size: 13px; line-height: 22px; font-weight: 600; }
 
@@ -217,9 +232,44 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .empty h3 { margin: 0; font-size: 19px; }
 .empty p { margin: 0; max-width: 32ch; }
 
-/* ---- Budgets page cards: category and status on one line; two short inputs side by side ---- */
-.budget header { display: flex; justify-content: space-between; gap: .5rem; }
+/* ---- Cards: head (title, meta, trailing actions), body, optional foot. Actions are icon buttons, top right. ---- */
+.card { position: relative; margin: 0; padding: var(--space-4); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-card); }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.card-actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; gap: var(--space-1); }
+.card--has-actions .card-head, .card--has-actions .budget-figures .head {
+    padding-right: calc(var(--tap-target) + var(--space-2)); }
+/* Tall enough that the bar starts below the pencil's 44px target. */
+.card--has-actions .budget-figures .head { min-height: 36px; align-items: center; }
+
+/* ---- Budgets page: the pencil sits top right, the editor opens below it inside the card ---- */
+#budgets { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
+.budget p { margin: 0; font-size: 14px; }
+details.budget-edit { margin: 0; border: 0; }
+details.budget-edit > summary.icon-btn { position: absolute; top: var(--space-2); right: var(--space-2); }
+details.budget-edit > summary::after { display: none; }
+details.budget-edit[open] > summary.icon-btn { background: var(--surface-sunken); color: var(--ink); }
+.budget-edit-panel { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
 .budget .grid { grid-template-columns: 1fr 1fr; }
-.budget form { margin-bottom: .5rem; }
-[data-level="WARNING_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--ochre); }
-[data-level="LIMIT_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--rust); }
+.budget-edit-panel form { margin-bottom: var(--space-2); }
+
+/* ---- Notice: a sentence with an icon; the words carry the meaning, the tint backs them up ---- */
+.notice { display: flex; gap: var(--space-2); align-items: flex-start; margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
+.notice p { margin: 0; color: var(--ink); }
+.notice .icon { width: 20px; height: 20px; margin-top: 2px; }
+.notice--success { background: var(--fern-soft); color: var(--forest); }
+.notice--warning { background: var(--ochre-soft); color: var(--ochre); }
+.notice--error { background: var(--rust-soft); color: var(--rust); }
+
+/* ---- Icons: fragments/icons.html, drawn in the text colour ---- */
+.icon { width: 24px; height: 24px; flex: none; vertical-align: middle; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* A control that is only an icon: 44px target, named by aria-label and title. */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: var(--tap-target); height: var(--tap-target); margin: 0; padding: 0; border: 0;
+    border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); }
+.icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
+.icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* An icon next to a word inside a normal button or link. */
+button .icon, [role="button"] .icon { width: 20px; height: 20px; margin-inline-end: var(--space-2); vertical-align: -4px; }

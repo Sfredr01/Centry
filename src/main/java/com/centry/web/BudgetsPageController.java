@@ -2,6 +2,7 @@ package com.centry.web;
 
 import com.centry.controller.BudgetController;
 import com.centry.dto.BudgetRequest;
+import com.centry.model.BudgetStatus;
 import com.centry.model.Keys;
 import com.centry.repository.BudgetRepository;
 import com.centry.repository.BudgetStatusQuery;
@@ -55,7 +56,13 @@ class BudgetsPageController {
     @PostMapping("/budgets/{category}")
     String edit(@PathVariable String category, @RequestParam String monthlyLimit,
             @RequestParam(defaultValue = "") String warnPercent, Model model, HttpServletResponse response) {
-        return upsert(Keys.of(category), monthlyLimit, warnPercent, model, response);
+        String key = Keys.of(category);
+        String view = upsert(key, monthlyLimit, warnPercent, model, response);
+        if (!REDIRECT.equals(view)) {
+            // Names the card to show open again, so the error appears next to the form that caused it.
+            model.addAttribute("failed", key);
+        }
+        return view;
     }
 
     @PostMapping("/budgets/{category}/delete")
@@ -93,7 +100,7 @@ class BudgetsPageController {
 
     private String render(Model model) {
         YearMonth month = YearMonth.now(clock);
-        model.addAttribute("budgets", statuses.all(month));
+        model.addAttribute("budgets", statuses.all(month).stream().sorted(BudgetStatus.WORST_FIRST).toList());
         model.addAttribute("exportFrom", month.atDay(1));
         model.addAttribute("exportTo", month.atEndOfMonth());
         return "budgets";

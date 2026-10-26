@@ -94,11 +94,17 @@ class BudgetsPageTest {
         // One card per budget, not a table: a five-column table with inputs cannot fit a phone screen.
         assertThat(page.select("#budgets table")).isEmpty();
         var card = page.selectFirst("#budgets article");
-        assertThat(card.text()).contains("food").contains("85.00");
-        var save = card.selectFirst("form[method=post][action=/budgets/food]");
+        assertThat(card.text()).contains("food").contains("$85.00");
+        // Editing hides behind a pencil on the card, labelled for the budget it opens.
+        var pencil = card.selectFirst("details.budget-edit > summary.icon-btn[aria-label=Edit food budget]");
+        assertThat(pencil.attr("title")).isEqualTo("Edit food budget");
+        var save = card.selectFirst("details.budget-edit form[method=post][action=/budgets/food]");
         assertThat(save.select("input[name=monthlyLimit]").attr("value")).isEqualTo("100.00");
         assertThat(save.select("input[name=warnPercent]").attr("value")).isEqualTo("80");
-        assertThat(page.select("form[method=post][action=/budgets/food/delete]")).hasSize(1);
+        var delete = card.selectFirst("details.budget-edit form[method=post][action=/budgets/food/delete] button");
+        assertThat(delete.text()).isEqualTo("Delete budget");
+        assertThat(delete.attr("onclick")).contains("confirm(");
+        assertThat(delete.select("svg.icon")).hasSize(1);
         assertThat(page.select("form[method=post][action=/budgets] input[name=category]")).hasSize(1);
         assertThat(page.select("form[action=/budgets/food] input[name=_csrf]")).hasSize(1);
 
@@ -112,6 +118,19 @@ class BudgetsPageTest {
                 .andExpect(status().isFound()).andExpect(redirectedUrl("/budgets"));
         assertThat(budgets.categoryKeys()).containsExactly("food", "travel");
         assertThat(statuses.status("travel", MARCH).orElseThrow().warnPercent()).isEqualTo(80);
+    }
+
+    @Test
+    void cardsWorstFirst() throws Exception {
+        budgets.upsert("bills", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("10.00"), 80);
+        expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "Cinema", new BigDecimal("20.00"),
+                "fun", LocalDateTime.of(2026, 3, 3, 20, 0), null, null));
+
+        Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
+
+        assertThat(page.select("#budgets article .head strong").eachText())
+                .containsExactly("fun", "food", "bills");
     }
 
     @Test
@@ -129,9 +148,11 @@ class BudgetsPageTest {
         Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
 
         assertThat(page.select("#budgets table")).isEmpty();
-        assertThat(page.selectFirst("#budgets article").text()).contains("food").contains("85.00")
-                .contains("100.00").contains("80");
+        assertThat(page.selectFirst("#budgets article").text()).contains("food").contains("$85.00")
+                .contains("$100.00").contains("80");
         assertThat(page.select("#budgets input")).isEmpty();
+        assertThat(page.select("#budgets details")).isEmpty();
+        assertThat(page.select("#budgets").text()).contains("Warns at 80%");
         // Only the logout form is left.
         assertThat(page.select("form").eachAttr("action")).containsExactly("/logout");
     }
@@ -165,6 +186,37 @@ class BudgetsPageTest {
         assertThat(page.select("#budgets article")).hasSize(1);
         assertThat(food().monthlyLimit()).isEqualByComparingTo("100.00");
         assertThat(food().warnPercent()).isEqualTo(80);
+    }
+
+    @Test
+    void invalidEditReopensThatCard() throws Exception {
+        budgets.upsert("fun", new BigDecimal("10.00"), 80);
+
+        Document page = Html.of(mockMvc.perform(form("/budgets/food", admin(), "monthlyLimit", "abc"))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(page.select("#budget-food details.budget-edit[open]")).hasSize(1);
+        assertThat(page.select("#budget-fun details.budget-edit[open]")).isEmpty();
+    }
+
+    @Test
+    void pillsUseTheDashboardWords() throws Exception {
+        Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
+
+        assertThat(page.select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
+    }
+
+    @Test
+    void emptyBudgetsPageOffersAddForAdminsOnly() throws Exception {
+        jdbc.sql("DELETE FROM budget").update();
+
+        Document asAdmin = Html.of(mockMvc.perform(get("/budgets").with(admin())).andExpect(status().isOk()));
+        Document asMom = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
+
+        assertThat(asAdmin.select("#budgets-empty a[href=#add-budget]")).hasSize(1);
+        assertThat(asAdmin.select("form#add-budget")).hasSize(1);
+        assertThat(asMom.select("#budgets-empty")).hasSize(1);
+        assertThat(asMom.select("#budgets-empty a")).isEmpty();
     }
 
     @Test

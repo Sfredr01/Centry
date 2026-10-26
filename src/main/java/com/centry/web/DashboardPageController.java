@@ -56,7 +56,7 @@ class DashboardPageController {
         model.addAttribute("month", month);
         model.addAttribute("members", members);
         model.addAttribute("selected", selected);
-        List<BudgetStatus> budgets = statusQuery.all(month, selected);
+        List<BudgetStatus> budgets = statusQuery.all(month, selected).stream().sorted(BudgetStatus.WORST_FIRST).toList();
         model.addAttribute("budgets", budgets);
         model.addAttribute("spentTotal", expenses.monthTotal(month, selected));
         model.addAttribute("budgetedTotal", budgets.stream().map(BudgetStatus::monthlyLimit)

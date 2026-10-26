@@ -105,7 +105,7 @@ class SubscriptionsPageTest {
         assertThat(s.nextDueOn()).isEqualTo(LocalDate.of(2026, 4, 4));
         assertThat(s.reviewedOn()).isEqualTo(TODAY);
         var card = page(admin()).selectFirst("#confirmed article");
-        assertThat(card.text()).contains("Netflix").contains("Monthly").contains("15.49").contains("2026-04-04");
+        assertThat(card.text()).contains("Netflix").contains("Monthly").contains("$15.49").contains("2026-04-04");
     }
 
     @Test
@@ -159,7 +159,7 @@ class SubscriptionsPageTest {
         long id = candidate("hulu", "Hulu");
 
         var card = page(admin()).selectFirst("#candidates article");
-        assertThat(card.text()).contains("Hulu").contains("15.49");
+        assertThat(card.text()).contains("Hulu").contains("$15.49");
         assertThat(card.select("form[action=/subscriptions/" + id + "/confirm]")).hasSize(1);
         assertThat(card.select("form[action=/subscriptions/" + id + "/ignore]")).hasSize(1);
 
@@ -248,7 +248,7 @@ class SubscriptionsPageTest {
         candidate("hulu", "Hulu");
 
         // 15.49 * 12 + 139.00; candidates do not count.
-        assertThat(page(admin()).selectFirst("#annual-total").text()).contains("324.88");
+        assertThat(page(admin()).selectFirst("#annual-total").text()).contains("About $324.88 a year");
     }
 
     @Test

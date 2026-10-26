@@ -113,6 +113,9 @@ class QuickAddPageTest {
         Document again = Html.of(getAdd("/add"));
         assertThat(again.selectFirst("input[name=clientRef]").attr("value")).isNotEqualTo(ref);
         assertThat(page.select("[role=status]")).isEmpty();
+        // The live region exists before any save, so the result is announced when it arrives.
+        assertThat(page.select("#add-status[aria-live=polite]")).hasSize(1);
+        assertThat(page.select("form[hx-disabled-elt]")).hasSize(1);
     }
 
     @Test
@@ -139,8 +142,9 @@ class QuickAddPageTest {
 
         // A fragment, not a whole page.
         assertThat(html).doesNotContain("<nav").doesNotContain("<html");
-        assertThat(panel.select("#add-panel [role=status]").text()).contains("12.50").contains("Market");
-        assertThat(panel.select("#add-panel [role=alert]")).isEmpty();
+        assertThat(panel.select("#add-status[hx-swap-oob=innerHTML] [role=status]").text())
+                .contains("Saved $12.50 at Market (Food).");
+        assertThat(panel.select("[role=alert]")).isEmpty();
         // Fresh form: new reference, amount cleared, category kept.
         String freshRef = panel.selectFirst("input[name=clientRef]").attr("value");
         assertUuid(freshRef);
@@ -205,6 +209,8 @@ class QuickAddPageTest {
         assertThat(panel.selectFirst("input[name=date]").attr("value")).isEqualTo("2026-03-10");
         assertThat(panel.selectFirst("input[name=clientRef]").attr("value")).isEqualTo(REF);
         assertThat(panel.select("[role=status]")).isEmpty();
+        // The status region is still sent, empty, so a stale "Saved" message is cleared.
+        assertThat(panel.select("#add-status").text()).isEmpty();
         assertThat(expenses.findByTransactionId(REF)).isEmpty();
     }
 

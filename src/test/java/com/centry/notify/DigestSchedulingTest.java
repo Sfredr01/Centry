@@ -40,7 +40,8 @@ class DigestSchedulingTest {
         @Test
         void disabledMeansNoSchedule() {
             assertThat(context.getBeanNamesForType(DigestService.class)).isEmpty();
-            assertThat(cronExpressions(context)).isEmpty();
+            // Other jobs (the nightly backup) keep their crons; only the digest's monthly and hourly ones go.
+            assertThat(cronExpressions(context)).doesNotContain("0 0 8 1 * *", "0 0 * * * *");
         }
     }
 

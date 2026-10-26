@@ -105,8 +105,8 @@ public class SecurityConfig {
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                             // Everything the login page needs to render, plus the PWA manifest and icons.
-                            .requestMatchers("/manifest.webmanifest", "/vendor/**", "/css/**", "/icons/**",
-                                    "/favicon.ico").permitAll()
+                            .requestMatchers("/manifest.webmanifest", "/vendor/**", "/css/**", "/js/**",
+                                    "/icons/**", "/favicon.ico").permitAll()
                             // The browser UI's budget forms; the matching API routes below are the same rule.
                             .requestMatchers(HttpMethod.POST, "/budgets", "/budgets/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.POST, "/subscriptions", "/subscriptions/**").hasRole("ADMIN")
