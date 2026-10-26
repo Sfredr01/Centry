@@ -1,6 +1,8 @@
 package com.centry.kafka;
 
 import com.centry.dto.ExpenseEvent;
+import com.centry.service.ExpenseConflictException;
+import com.centry.service.UnknownSpenderException;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -70,9 +72,10 @@ public class KafkaConfig {
         // Partition -1 lets the producer choose, so raw-expenses may have more partitions than the DLT.
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(templates,
                 (record, ex) -> new TopicPartition(RAW_EXPENSES_DLT_TOPIC, -1));
-        // Retry transient failures twice, one second apart; poison and invalid input skips retries.
+        // Retry transient failures twice, one second apart; poison, invalid and conflicting input skips retries.
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
-        handler.addNotRetryableExceptions(DeserializationException.class, MethodArgumentNotValidException.class);
+        handler.addNotRetryableExceptions(DeserializationException.class, MethodArgumentNotValidException.class,
+                UnknownSpenderException.class, ExpenseConflictException.class);
         return handler;
     }
 }

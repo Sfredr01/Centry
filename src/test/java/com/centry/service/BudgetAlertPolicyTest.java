@@ -58,7 +58,7 @@ class BudgetAlertPolicyTest {
 
     private void spend(String amount, LocalDateTime at) {
         service.record(ExpenseEvent.builder().merchant("Shop").amount(new BigDecimal(amount))
-                .category("Policy").timestamp(at).build());
+                .category("Policy").timestamp(at).build(), null);
     }
 
     private List<BudgetLevel> levels() {
@@ -160,7 +160,7 @@ class BudgetAlertPolicyTest {
     @Test
     void categoryWithoutBudgetNeverAlerts() {
         service.record(ExpenseEvent.builder().merchant("Shop").amount(new BigDecimal("5000.00"))
-                .category("unbudgeted").timestamp(JAN).build());
+                .category("unbudgeted").timestamp(JAN).build(), null);
 
         assertThat(levels()).isEmpty();
     }

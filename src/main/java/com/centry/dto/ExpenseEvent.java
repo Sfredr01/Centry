@@ -38,4 +38,7 @@ public class ExpenseEvent {
     private String category;
 
     private LocalDateTime timestamp;
+
+    /** Id of the household member this is attributed to. Optional: the service fills in the caller. */
+    private Long spentBy;
 }

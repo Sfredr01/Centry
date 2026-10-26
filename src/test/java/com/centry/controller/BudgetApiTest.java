@@ -71,7 +71,7 @@ class BudgetApiTest {
 
     private void spend(String category, String amount, LocalDateTime at) {
         expenses.save(new ExpenseEntity(null, java.util.UUID.randomUUID().toString(), "Shop",
-                new BigDecimal(amount), category, at));
+                new BigDecimal(amount), category, at, null, null));
     }
 
     @Test

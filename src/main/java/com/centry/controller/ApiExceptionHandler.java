@@ -2,6 +2,7 @@ package com.centry.controller;
 
 import com.centry.repository.UsernameTakenException;
 import com.centry.service.ExpenseConflictException;
+import com.centry.service.UnknownSpenderException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -28,6 +29,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleConflict(ExpenseConflictException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflicting expense");
+        return problem;
+    }
+
+    @ExceptionHandler(UnknownSpenderException.class)
+    ProblemDetail handleUnknownSpender(UnknownSpenderException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request validation failed");
+        problem.setTitle(INVALID_REQUEST);
+        problem.setProperty("errors", Map.of("spentBy", ex.getMessage()));
         return problem;
     }
 

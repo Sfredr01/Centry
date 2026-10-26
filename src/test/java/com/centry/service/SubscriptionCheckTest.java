@@ -66,9 +66,9 @@ class SubscriptionCheckTest {
             clean();
             // Stored behind the service's back: a map filled only by record() could not know about it.
             expenses.save(new com.centry.entity.ExpenseEntity(null, "seed-1", "Netflix", new BigDecimal("15.49"),
-                    "subscriptions", AT.minusDays(30)));
+                    "subscriptions", AT.minusDays(30), null, null));
 
-            service.record(charge("  NETFLIX ", "17.99"));
+            service.record(charge("  NETFLIX ", "17.99"), null);
 
             assertThat(subscriptionAlerts()).singleElement().satisfies(alert -> {
                 assertThat(alert.getPreviousAmount()).isEqualByComparingTo("15.49");
@@ -79,11 +79,11 @@ class SubscriptionCheckTest {
         @Test
         void previousIsTheLatestChargeOfThatMerchantOnly() {
             clean();
-            service.record(charge("Netflix", "10.00"));
-            service.record(charge("Hulu", "50.00"));
-            service.record(charge("Netflix", "20.00"));
+            service.record(charge("Netflix", "10.00"), null);
+            service.record(charge("Hulu", "50.00"), null);
+            service.record(charge("Netflix", "20.00"), null);
             // Compared with the latest Netflix charge (20.00), not the first (10.00) or Hulu's.
-            service.record(charge("Netflix", "15.00"));
+            service.record(charge("Netflix", "15.00"), null);
 
             assertThat(subscriptionAlerts()).singleElement()
                     .satisfies(alert -> assertThat(alert.getPreviousAmount()).isEqualByComparingTo("10.00"));
@@ -93,10 +93,10 @@ class SubscriptionCheckTest {
         @Test
         void priceIncreaseAlertsUnchanged() {
             clean();
-            service.record(charge("Netflix", "15.49"));
+            service.record(charge("Netflix", "15.49"), null);
             assertThat(subscriptionAlerts()).isEmpty();
 
-            service.record(charge("  NETFLIX ", "17.99"));
+            service.record(charge("  NETFLIX ", "17.99"), null);
 
             SubscriptionAlertEvent alert = subscriptionAlerts().get(0);
             assertThat(alert.getAnomalyType()).isEqualTo("PRICE_INCREASE");
@@ -116,9 +116,9 @@ class SubscriptionCheckTest {
         @Test
         void equalOrLowerChargeAlertsNothing() {
             clean();
-            service.record(charge("Netflix", "15.49"));
-            service.record(charge("Netflix", "15.49"));
-            service.record(charge("Netflix", "9.99"));
+            service.record(charge("Netflix", "15.49"), null);
+            service.record(charge("Netflix", "15.49"), null);
+            service.record(charge("Netflix", "9.99"), null);
 
             assertThat(subscriptionAlerts()).isEmpty();
             assertThat(alerts.findTop50ByOrderByTimestampDesc()).isEmpty();
@@ -138,11 +138,11 @@ class SubscriptionCheckTest {
     @Test
     void survivesRestart() {
         try (ConfigurableApplicationContext first = start()) {
-            first.getBean(ExpenseService.class).record(charge("Netflix", "9.99"));
+            first.getBean(ExpenseService.class).record(charge("Netflix", "9.99"), null);
         }
 
         try (ConfigurableApplicationContext second = start()) {
-            second.getBean(ExpenseService.class).record(charge("Netflix", "12.99"));
+            second.getBean(ExpenseService.class).record(charge("Netflix", "12.99"), null);
 
             List<SubscriptionAlertEntity> alerts =
                     second.getBean(SubscriptionAlertRepository.class).findTop50ByOrderByTimestampDesc();

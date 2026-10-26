@@ -2,7 +2,9 @@ package com.centry.web;
 
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.BudgetRepository;
+import com.centry.model.Role;
 import com.centry.repository.ExpenseRepository;
+import com.centry.repository.UserRepository;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,10 +53,25 @@ class QuickAddPageTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private UserRepository users;
+
+    private long mom;
+    private long kid;
+
     @BeforeEach
     void clean() {
         expenses.deleteAll();
         jdbc.sql("DELETE FROM budget").update();
+        jdbc.sql("DELETE FROM users WHERE username <> 'admin'").update();
+        LocalDateTime joined = LocalDateTime.of(2026, 1, 1, 0, 0);
+        mom = users.insert("mom", "Mom", null, Role.MEMBER, joined).id();
+        // A member with no password: cannot log in, but can be picked as the spender.
+        kid = users.insert("kid", "Kid", null, Role.MEMBER, joined).id();
+    }
+
+    private static String selectedSpender(Document page) {
+        return page.selectFirst("select[name=spentBy] option[selected]").attr("value");
     }
 
     private ResultActions getAdd(String url) throws Exception {
@@ -103,7 +120,7 @@ class QuickAddPageTest {
         budgets.upsert("food", new BigDecimal("100.00"), 80);
         for (String category : new String[] {"Dining", "dining", "Fuel", "FOOD"}) {
             expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "m", BigDecimal.ONE, category,
-                    LocalDateTime.of(2026, 3, 1, 0, 0)));
+                    LocalDateTime.of(2026, 3, 1, 0, 0), null, null));
         }
 
         Document page = Html.of(getAdd("/add"));
@@ -228,7 +245,7 @@ class QuickAddPageTest {
                         .param("amount", "3.00").param("category", "Food"))
                 .andExpect(status().isOk());
 
-        assertThat(expenses.findRecent(5)).singleElement().satisfies(saved -> {
+        assertThat(expenses.findRecent(5, null)).singleElement().satisfies(saved -> {
             assertThat(saved.merchant()).isEqualTo("Food");
             assertUuid(saved.transactionId());
         });
@@ -240,6 +257,78 @@ class QuickAddPageTest {
                         .param("amount", "5.00").param("category", "Food").param("clientRef", REF))
                 .andExpect(status().isForbidden());
 
+        assertThat(expenses.findByTransactionId(REF)).isEmpty();
+    }
+
+    @Test
+    void spenderDefaultsToMe() throws Exception {
+        Document page = Html.of(getAdd("/add").andExpect(status().isOk()));
+
+        assertThat(selectedSpender(page)).isEqualTo(String.valueOf(mom));
+    }
+
+    @Test
+    void listsNoLoginMembers() throws Exception {
+        Document page = Html.of(getAdd("/add"));
+
+        assertThat(page.select("select[name=spentBy] option").eachText()).containsExactlyInAnyOrder("admin", "Mom", "Kid");
+        assertThat(page.select("select[name=spentBy] option").eachAttr("value")).contains(String.valueOf(kid));
+    }
+
+    @Test
+    void savesWhoSpentAndWhoEnteredIt() throws Exception {
+        mockMvc.perform(htmx(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", String.valueOf(kid))))
+                .andExpect(status().isOk());
+
+        assertThat(stored().spentBy()).isEqualTo(kid);
+        assertThat(stored().createdBy()).isEqualTo(mom);
+    }
+
+    @Test
+    void blankSpenderMeansMe() throws Exception {
+        mockMvc.perform(htmx(add("4.00", "Food", "Cafe", "2026-03-15"))).andExpect(status().isOk());
+
+        assertThat(stored().spentBy()).isEqualTo(mom);
+        assertThat(stored().createdBy()).isEqualTo(mom);
+    }
+
+    @Test
+    void spenderIsKeptAfterAnHtmxSave() throws Exception {
+        Document panel = Html.of(mockMvc.perform(
+                htmx(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", String.valueOf(kid))))
+                .andExpect(status().isOk()));
+
+        assertThat(selectedSpender(panel)).isEqualTo(String.valueOf(kid));
+    }
+
+    @Test
+    void unknownSpenderWithoutHtmxRendersTheWholePage() throws Exception {
+        Document page = Html.of(mockMvc.perform(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", "999999"))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("#spentBy-error").text()).isNotBlank();
+    }
+
+    @Test
+    void loginWithoutAUserRowGetsNoDefaultSpender() throws Exception {
+        Document page = Html.of(mockMvc.perform(get("/add").with(user("ghost").roles("MEMBER")))
+                .andExpect(status().isOk()));
+
+        assertThat(selectedSpender(page)).isEmpty();
+        assertThat(page.selectFirst("select[name=spentBy] option[selected]").text()).isEqualTo("Unattributed");
+    }
+
+    @ParameterizedTest(name = "spender {0}")
+    @ValueSource(strings = {"999999", "abc"})
+    void unknownSpenderRerendersWithInlineError(String spender) throws Exception {
+        Document panel = Html.of(mockMvc.perform(
+                htmx(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", spender)))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(panel.select("#spentBy-error").text()).isNotBlank();
+        assertThat(panel.selectFirst("select[name=spentBy]").attr("aria-invalid")).isEqualTo("true");
+        assertThat(panel.selectFirst("input[name=amount]").attr("value")).isEqualTo("4.00");
         assertThat(expenses.findByTransactionId(REF)).isEmpty();
     }
 }

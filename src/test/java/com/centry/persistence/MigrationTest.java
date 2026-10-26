@@ -135,4 +135,37 @@ class MigrationTest {
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("CHECK constraint failed");
         jdbc.sql("DELETE FROM users WHERE username = 'Alice'").update();
     }
+
+    @Test
+    void v5AddsAttributionColumns(@TempDir Path dir) {
+        assertThat(jdbc.sql("SELECT name FROM pragma_table_info('expense') WHERE name IN ('spent_by', 'created_by')")
+                .query(String.class).list()).containsExactlyInAnyOrder("spent_by", "created_by");
+        assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_expense_spent_by_occurred_at' "
+                        + "AND sql LIKE '%(spent_by, occurred_at)%'")
+                .query(String.class).list()).hasSize(1);
+
+        // A row written before V5 survives, unattributed.
+        String url = "jdbc:sqlite:" + dir.resolve("old.db");
+        Flyway.configure().dataSource(url, null, null).target("4").load().migrate();
+        var old = JdbcClient.create(new DriverManagerDataSource(url));
+        old.sql("INSERT INTO expense (transaction_id, amount_cents, occurred_at) VALUES ('old', 100, '2026-01-01T00:00:00')")
+                .update();
+
+        Flyway.configure().dataSource(url, null, null).target("5").load().migrate();
+
+        assertThat(old.sql("SELECT spent_by FROM expense WHERE transaction_id = 'old'").query(Long.class).optional())
+                .isEmpty();
+        assertThat(old.sql("SELECT count(*) FROM expense").query(Long.class).single()).isEqualTo(1L);
+    }
+
+    @Test
+    void spentByMustReferenceUser() {
+        // sqlite-jdbc enforces foreign keys per connection; Spring's pool sets that up (see SqliteConfigTest).
+        assertThatThrownBy(() -> jdbc.sql("INSERT INTO expense (transaction_id, amount_cents, occurred_at, spent_by) "
+                        + "VALUES ('fk-spent', 100, '2026-01-01T00:00:00', 999999)").update())
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("FOREIGN KEY constraint failed");
+        assertThatThrownBy(() -> jdbc.sql("INSERT INTO expense (transaction_id, amount_cents, occurred_at, created_by) "
+                        + "VALUES ('fk-created', 100, '2026-01-01T00:00:00', 999999)").update())
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("FOREIGN KEY constraint failed");
+    }
 }

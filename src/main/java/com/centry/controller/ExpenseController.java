@@ -3,12 +3,15 @@ package com.centry.controller;
 import com.centry.dto.ExpenseEvent;
 import com.centry.entity.ExpenseEntity;
 import com.centry.repository.ExpenseRepository;
+import com.centry.repository.UserRepository;
+import com.centry.security.Actor;
 import com.centry.service.ExpenseService;
 import com.centry.service.ExpenseService.Recorded;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,11 +24,12 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
     private final ExpenseRepository expenseRepository;
+    private final UserRepository users;
 
     @PostMapping
-    public ResponseEntity<ExpenseEntity> createExpense(@Valid @RequestBody ExpenseEvent expense) {
+    public ResponseEntity<ExpenseEntity> createExpense(@Valid @RequestBody ExpenseEvent expense, Authentication caller) {
         // The service assigns a missing transaction id and defaults a missing timestamp from the Clock.
-        Recorded recorded = expenseService.record(expense);
+        Recorded recorded = expenseService.record(expense, Actor.of(caller, users).userId());
         URI location = location(recorded.expense());
         // A replay of an already stored expense is not a new resource: 200 instead of 201.
         return recorded.created()
