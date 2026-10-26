@@ -47,6 +47,18 @@
         <label>Warn at percent (default 80) <input name="warnPercent" inputmode="numeric"></label>
         <button type="submit">Add budget</button>
     </form>
+
+    <article sec:authorize="hasRole('ADMIN')">
+        <header><strong>Export</strong></header>
+        <p>Download the expenses of a date range (both days included, up to five years) as a CSV file.</p>
+        <form method="get" th:action="@{/export/expenses.csv}">
+            <div class="grid">
+                <label>From <input type="date" name="from" required th:value="${exportFrom}"></label>
+                <label>To <input type="date" name="to" required th:value="${exportTo}"></label>
+            </div>
+            <button type="submit">Download CSV</button>
+        </form>
+    </article>
 </main>
 </body>
 </html>

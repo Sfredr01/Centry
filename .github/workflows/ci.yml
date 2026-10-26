@@ -52,7 +52,7 @@ jobs:
         run: shellcheck scripts/*.sh
 
       # Native amd64 build proves the Dockerfile works without slow QEMU emulation. It is loaded into the local
-      # Docker daemon as centry:smoke, which smoke.sh and test-upgrade.sh then run.
+      # Docker daemon as centry:smoke, which smoke.sh, test-upgrade.sh and test-restore.sh then run.
       - name: Build image (no push)
         uses: docker/build-push-action@v5
         with:
@@ -70,6 +70,9 @@ jobs:
 
       - name: Upgrade and rollback test
         run: scripts/test-upgrade.sh
+
+      - name: Restore test
+        run: scripts/test-restore.sh
 
       - name: Validate the Kafka override
         run: |
