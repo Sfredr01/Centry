@@ -4,7 +4,10 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import com.centry.service.ExpenseConflictException;
+import com.centry.service.UnknownSpenderException;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
@@ -93,5 +96,19 @@ class KafkaConfigTest {
         ArgumentCaptor<ProducerRecord> sent = ArgumentCaptor.forClass(ProducerRecord.class);
         verify(template, timeout(5000)).send(sent.capture());
         assertThat(sent.getValue().topic()).isEqualTo("raw-expenses.DLT");
+    }
+
+    @Test
+    void permanentDomainFailuresGoToDltOnFirstAttempt() {
+        // Retrying cannot fix an unknown spender or a reused transaction id; the listener wraps the cause.
+        for (Exception cause : new Exception[]{new UnknownSpenderException(42), new ExpenseConflictException()}) {
+            KafkaTemplate<String, Object> template = jsonTemplate();
+
+            handleOnce(handler(template), new ListenerExecutionFailedException("listener failed", cause));
+
+            ArgumentCaptor<ProducerRecord> sent = ArgumentCaptor.forClass(ProducerRecord.class);
+            verify(template, timeout(5000)).send(sent.capture());
+            assertThat(sent.getValue().topic()).isEqualTo("raw-expenses.DLT");
+        }
     }
 }
