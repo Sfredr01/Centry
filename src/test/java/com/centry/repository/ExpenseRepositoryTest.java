@@ -14,6 +14,7 @@ import com.centry.model.Role;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -149,6 +150,23 @@ class ExpenseRepositoryTest {
 
         assertThat(repository.findRecent(10, ann)).containsExactly(a2, a1);
         assertThat(repository.findRecent(10, null)).hasSize(3);
+    }
+
+    @Test
+    void monthTotalSumsEveryCategoryInsideTheMonthOptionallyForOneMember() {
+        long ann = user("ann");
+        long bob = user("bob");
+        LocalDateTime jan1 = LocalDateTime.of(2026, 1, 1, 0, 0);
+        repository.save(new ExpenseEntity(null, "1", "m", new BigDecimal("1.10"), "food", jan1, ann, null));
+        repository.save(new ExpenseEntity(null, "2", "m", new BigDecimal("2.20"), "fun", TS, bob, null));
+        repository.save(new ExpenseEntity(null, "3", "m", new BigDecimal("4.40"), "food", TS, null, null));
+        // Either side of January: the last second of December and the first of February do not count.
+        repository.save(new ExpenseEntity(null, "4", "m", new BigDecimal("8.00"), "food", jan1.minusSeconds(1), ann, null));
+        repository.save(new ExpenseEntity(null, "5", "m", new BigDecimal("16.00"), "food", jan1.plusMonths(1), ann, null));
+
+        assertThat(repository.monthTotal(YearMonth.of(2026, 1), null)).isEqualTo(new BigDecimal("7.70"));
+        assertThat(repository.monthTotal(YearMonth.of(2026, 1), ann)).isEqualTo(new BigDecimal("1.10"));
+        assertThat(repository.monthTotal(YearMonth.of(2025, 6), null)).isEqualTo(new BigDecimal("0.00"));
     }
 
     @Test

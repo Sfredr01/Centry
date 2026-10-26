@@ -235,7 +235,7 @@ class QuickAddPageTest {
         Document page = Html.of(mockMvc.perform(add("0", "Food", "Cafe", "2026-03-15"))
                 .andExpect(status().isUnprocessableContent()));
 
-        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("nav.tabbar")).hasSize(1);
         assertThat(page.select("#amount-error").text()).isNotBlank();
     }
 
@@ -306,7 +306,7 @@ class QuickAddPageTest {
         Document page = Html.of(mockMvc.perform(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", "999999"))
                 .andExpect(status().isUnprocessableContent()));
 
-        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("nav.tabbar")).hasSize(1);
         assertThat(page.select("#spentBy-error").text()).isNotBlank();
     }
 

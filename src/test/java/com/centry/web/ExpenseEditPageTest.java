@@ -259,7 +259,7 @@ class ExpenseEditPageTest {
         Document page = Html.of(mockMvc.perform(save(momsExpense.id(), asMom(), "abc", "Food", "Market", "2026-03-02",
                 String.valueOf(mom))).andExpect(status().isUnprocessableContent()));
 
-        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("nav.tabbar")).hasSize(1);
         assertThat(page.select("#amount-error").text()).isNotBlank();
         assertThat(page.selectFirst("input[name=amount]").attr("aria-invalid")).isEqualTo("true");
         // What was typed survives and the form still posts to the same expense.
