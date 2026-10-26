@@ -8,39 +8,7 @@
         <p role="status" th:if="${message}" th:text="${message}">Saved.</p>
         <form method="post" th:action="@{/add}" th:attr="hx-post=@{/add}" hx-target="#add-panel" hx-swap="outerHTML"
               hx-disabled-elt="find button">
-            <label>Amount
-                <input name="amount" inputmode="decimal" autocomplete="off" autofocus required
-                       th:value="${form.amount}" th:aria-invalid="${errors.containsKey('amount')} ? 'true'">
-                <small id="amount-error" th:if="${errors.containsKey('amount')}" th:text="${errors['amount']}"></small>
-            </label>
-            <label>Category
-                <input name="category" list="categories" autocomplete="off" required
-                       th:value="${form.category}" th:aria-invalid="${errors.containsKey('category')} ? 'true'">
-                <small id="category-error" th:if="${errors.containsKey('category')}"
-                       th:text="${errors['category']}"></small>
-            </label>
-            <datalist id="categories">
-                <option th:each="c : ${categories}" th:value="${c}"></option>
-            </datalist>
-            <label>Merchant (optional)
-                <input name="merchant" autocomplete="off"
-                       th:value="${form.merchant}" th:aria-invalid="${errors.containsKey('merchant')} ? 'true'">
-                <small id="merchant-error" th:if="${errors.containsKey('merchant')}"
-                       th:text="${errors['merchant']}"></small>
-            </label>
-            <label>Spent by
-                <select name="spentBy" th:aria-invalid="${errors.containsKey('spentBy')} ? 'true'">
-                    <option th:each="m : ${members}" th:value="${m.id}" th:text="${m.displayName}"
-                            th:selected="${m.id.toString() == form.spentBy}"></option>
-                </select>
-                <small id="spentBy-error" th:if="${errors.containsKey('spentBy')}"
-                       th:text="${errors['spentBy']}"></small>
-            </label>
-            <label>Date
-                <input name="date" type="date"
-                       th:value="${form.date}" th:aria-invalid="${errors.containsKey('date')} ? 'true'">
-                <small id="date-error" th:if="${errors.containsKey('date')}" th:text="${errors['date']}"></small>
-            </label>
+            <th:block th:replace="~{fragments/expense-fields :: fields}"></th:block>
             <input type="hidden" name="clientRef" th:value="${form.clientRef}">
             <button type="submit">Save</button>
         </form>

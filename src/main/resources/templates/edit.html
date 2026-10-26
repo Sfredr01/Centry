@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: page('Edit expense', ~{::main})}">
+<body>
+<main class="container">
+    <h1>Edit expense</h1>
+    <form method="post" th:action="@{/expenses/{id}(id=${expenseId})}">
+        <th:block th:replace="~{fragments/expense-fields :: fields}"></th:block>
+        <button type="submit">Save changes</button>
+    </form>
+    <!--/* A separate form: Delete must not submit the edited values, and works without JavaScript. */-->
+    <form method="post" th:action="@{/expenses/{id}/delete(id=${expenseId})}">
+        <button type="submit" class="outline secondary"
+                onclick="return confirm('Delete this expense?')">Delete</button>
+    </form>
+    <p><a th:href="@{/}">Cancel</a></p>
+</main>
+</body>
+</html>

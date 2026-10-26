@@ -2,9 +2,6 @@ package com.centry.web;
 
 import com.centry.dto.ExpenseEvent;
 import com.centry.entity.ExpenseEntity;
-import com.centry.model.Keys;
-import com.centry.repository.BudgetRepository;
-import com.centry.repository.ExpenseRepository;
 import com.centry.repository.UserRepository;
 import com.centry.security.Actor;
 import com.centry.service.ExpenseService;
@@ -20,9 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,13 +31,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 class QuickAddController {
 
-    private static final int RECENT_CATEGORIES = 20;
     private static final String HX_REQUEST = "HX-Request";
     private static final String PANEL = "add :: panel";
 
     private final ExpenseService expenseService;
-    private final ExpenseRepository expenses;
-    private final BudgetRepository budgets;
+    private final CategoryChoices categories;
     private final UserRepository users;
     private final ExpenseFormMapper mapper;
 
@@ -86,7 +79,7 @@ class QuickAddController {
     private String render(Model model, ExpenseForm form, Map<String, String> errors, String view) {
         model.addAttribute("form", form);
         model.addAttribute("errors", errors);
-        model.addAttribute("categories", knownCategories());
+        model.addAttribute("categories", categories.known());
         model.addAttribute("members", users.findAll());
         return view;
     }
@@ -94,13 +87,5 @@ class QuickAddController {
     private String myId(Authentication caller) {
         Long id = Actor.of(caller, users).userId();
         return id == null ? "" : id.toString();
-    }
-
-    /** Budget categories first, then the ones used lately; one entry per normalized key. */
-    private List<String> knownCategories() {
-        Map<String, String> byKey = new LinkedHashMap<>();
-        budgets.categoryKeys().forEach(key -> byKey.putIfAbsent(key, key));
-        expenses.recentCategories(RECENT_CATEGORIES).forEach(name -> byKey.putIfAbsent(Keys.of(name), name));
-        return new ArrayList<>(byKey.values());
     }
 }

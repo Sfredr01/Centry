@@ -1,5 +1,7 @@
 package com.centry.web;
 
+import com.centry.entity.ExpenseEntity;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -17,6 +19,13 @@ record ExpenseForm(String amount, String category, String merchant, String date,
     /** An empty form for a new expense dated {@code today}, attributed to {@code spentBy} (a user id as text). */
     static ExpenseForm blank(LocalDate today, String category, String spentBy) {
         return new ExpenseForm("", category, "", today.toString(), spentBy, UUID.randomUUID().toString());
+    }
+
+    /** The edit form for a stored expense. Unattributed means a blank spender; there is no client reference. */
+    static ExpenseForm of(ExpenseEntity expense) {
+        return new ExpenseForm(expense.amount().toPlainString(), expense.category(), expense.merchant(),
+                expense.timestamp().toLocalDate().toString(),
+                expense.spentBy() == null ? "" : expense.spentBy().toString(), "");
     }
 
     ExpenseForm trimmed() {

@@ -301,6 +301,24 @@ class QuickAddPageTest {
         assertThat(selectedSpender(panel)).isEqualTo(String.valueOf(kid));
     }
 
+    @Test
+    void unknownSpenderWithoutHtmxRendersTheWholePage() throws Exception {
+        Document page = Html.of(mockMvc.perform(add("4.00", "Food", "Cafe", "2026-03-15").param("spentBy", "999999"))
+                .andExpect(status().isUnprocessableContent()));
+
+        assertThat(page.select("header nav")).hasSize(1);
+        assertThat(page.select("#spentBy-error").text()).isNotBlank();
+    }
+
+    @Test
+    void loginWithoutAUserRowGetsNoDefaultSpender() throws Exception {
+        Document page = Html.of(mockMvc.perform(get("/add").with(user("ghost").roles("MEMBER")))
+                .andExpect(status().isOk()));
+
+        assertThat(selectedSpender(page)).isEmpty();
+        assertThat(page.selectFirst("select[name=spentBy] option[selected]").text()).isEqualTo("Unattributed");
+    }
+
     @ParameterizedTest(name = "spender {0}")
     @ValueSource(strings = {"999999", "abc"})
     void unknownSpenderRerendersWithInlineError(String spender) throws Exception {
