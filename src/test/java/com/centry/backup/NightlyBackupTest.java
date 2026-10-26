@@ -101,13 +101,14 @@ class NightlyBackupTest {
         touch("nightly-20260103.db");
         touch("centry-20200101T000000-v1.db");
         touch("pre-restore-20200101T000000.db");
+        touch("nightly-notes.txt");
 
         backup(2).run();
 
         try (Stream<Path> files = Files.list(backups())) {
             assertThat(files.map(p -> p.getFileName().toString())).containsExactlyInAnyOrder(
                     "nightly-20260103.db", "nightly-20260315.db",
-                    "centry-20200101T000000-v1.db", "pre-restore-20200101T000000.db");
+                    "centry-20200101T000000-v1.db", "pre-restore-20200101T000000.db", "nightly-notes.txt");
         }
     }
 
