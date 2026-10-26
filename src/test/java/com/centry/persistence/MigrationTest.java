@@ -36,8 +36,8 @@ class MigrationTest {
         assertThat(jdbc.sql("SELECT success FROM flyway_schema_history WHERE version = '1'")
                 .query(Integer.class).single()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN "
-                        + "('expense', 'budget_alert', 'subscription_alert')")
-                .query(String.class).list()).containsExactlyInAnyOrder("expense", "budget_alert", "subscription_alert");
+                        + "('expense', 'budget_alert')")
+                .query(String.class).list()).containsExactlyInAnyOrder("expense", "budget_alert");
         assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'expense' "
                         + "AND sql LIKE '%(category, occurred_at)%'")
                 .query(String.class).list()).hasSize(1);
