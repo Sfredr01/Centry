@@ -29,6 +29,7 @@ class MigrationTest {
     @AfterEach
     void clean() {
         jdbc.sql("DELETE FROM expense").update();
+        jdbc.sql("DELETE FROM subscription").update();
     }
 
     @Test
@@ -36,8 +37,8 @@ class MigrationTest {
         assertThat(jdbc.sql("SELECT success FROM flyway_schema_history WHERE version = '1'")
                 .query(Integer.class).single()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN "
-                        + "('expense', 'budget_alert', 'subscription_alert')")
-                .query(String.class).list()).containsExactlyInAnyOrder("expense", "budget_alert", "subscription_alert");
+                        + "('expense', 'budget_alert')")
+                .query(String.class).list()).containsExactlyInAnyOrder("expense", "budget_alert");
         assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'expense' "
                         + "AND sql LIKE '%(category, occurred_at)%'")
                 .query(String.class).list()).hasSize(1);
@@ -167,5 +168,90 @@ class MigrationTest {
         assertThatThrownBy(() -> jdbc.sql("INSERT INTO expense (transaction_id, amount_cents, occurred_at, created_by) "
                         + "VALUES ('fk-created', 100, '2026-01-01T00:00:00', 999999)").update())
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("FOREIGN KEY constraint failed");
+    }
+
+    private static final String INSERT_SUB = "INSERT INTO subscription (merchant_key, name, cadence, expected_cents, "
+            + "next_due_on, status, reviewed_on, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, '2026-01-01T00:00:00')";
+
+    private void insertSub(String key, String name, String cadence, int cents, String due, String status,
+            String reviewed) {
+        jdbc.sql(INSERT_SUB).params(key, name, cadence, cents, due, status, reviewed).update();
+    }
+
+    private void assertRejected(Runnable insert, String message) {
+        assertThatThrownBy(insert::run).isInstanceOf(DataAccessException.class).hasMessageContaining(message);
+    }
+
+    @Test
+    void v8CreatesSubscriptionTablesAndDropsOld() {
+        assertThat(jdbc.sql("SELECT success FROM flyway_schema_history WHERE version = '8'")
+                .query(Integer.class).single()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT name FROM pragma_table_list WHERE name IN ('subscription', 'subscription_alert') "
+                        + "AND strict = 1").query(String.class).list())
+                .containsExactlyInAnyOrder("subscription", "subscription_alert");
+        // The old price-rise table is gone: the new one has the dedupe columns instead.
+        assertThat(jdbc.sql("SELECT name FROM pragma_table_info('subscription_alert') WHERE name = 'merchant'")
+                .query(String.class).list()).isEmpty();
+        assertThat(jdbc.sql("SELECT name FROM sqlite_master WHERE name IN ('idx_subscription_alert_occurred_at', "
+                        + "'idx_subscription_alert_unsent')").query(String.class).list())
+                .containsExactly("idx_subscription_alert_unsent");
+    }
+
+    @Test
+    void rejectsUnnormalizedMerchantKey() {
+        assertRejected(() -> insertSub("Netflix", "Netflix", "MONTHLY", 1549, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub(" netflix", "Netflix", "MONTHLY", 1549, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("", "Netflix", "MONTHLY", 1549, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("netflix", "  ", "MONTHLY", 1549, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        insertSub("netflix", "Netflix", "MONTHLY", 1549, "2026-04-04", "CANDIDATE", null);
+        assertRejected(() -> insertSub("netflix", "Netflix 2", "YEARLY", 100, "2026-04-04", "CANDIDATE", null),
+                "UNIQUE constraint failed");
+    }
+
+    @Test
+    void rejectsBadCadenceStatusOrDate() {
+        assertRejected(() -> insertSub("a", "A", "WEEKLY", 100, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 100, "2026-04-04", "MAYBE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 0, "2026-04-04", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 100, "2026-02-30", "CANDIDATE", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 100, "2026-04-04", "CONFIRMED", "04/04/2026"),
+                "CHECK constraint failed");
+    }
+
+    @Test
+    void confirmedRequiresReviewedOn() {
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 100, "2026-04-04", "CONFIRMED", null),
+                "CHECK constraint failed");
+        assertRejected(() -> insertSub("a", "A", "MONTHLY", 100, "2026-04-04", "IGNORED", null),
+                "CHECK constraint failed");
+        insertSub("a", "A", "MONTHLY", 100, "2026-04-04", "CONFIRMED", "2026-03-15");
+        insertSub("b", "B", "MONTHLY", 100, "2026-04-04", "CANDIDATE", null);
+    }
+
+    @Test
+    void subscriptionAlertDedupeIsUnique() {
+        insertSub("a", "A", "YEARLY", 100, "2026-04-04", "CONFIRMED", "2026-03-15");
+        long id = jdbc.sql("SELECT id FROM subscription WHERE merchant_key = 'a'").query(Long.class).single();
+        String alert = "INSERT INTO subscription_alert (subscription_id, kind, dedupe_key, title, body, occurred_at) "
+                + "VALUES (?, ?, ?, 't', 'b', '2026-03-15T10:00:00')";
+        jdbc.sql(alert).params(id, "PRICE_CHANGE", "1549>1799").update();
+
+        assertRejected(() -> jdbc.sql(alert).params(id, "PRICE_CHANGE", "1549>1799").update(),
+                "UNIQUE constraint failed");
+        jdbc.sql(alert).params(id, "PRICE_CHANGE", "1549>1999").update();
+        jdbc.sql(alert).params(id, "RENEWAL_UPCOMING", "1549>1799").update();
+        assertRejected(() -> jdbc.sql(alert).params(id, "OTHER", "x").update(), "CHECK constraint failed");
+
+        // Alerts go with their subscription.
+        jdbc.sql("DELETE FROM subscription WHERE id = ?").param(id).update();
+        assertThat(jdbc.sql("SELECT count(*) FROM subscription_alert").query(Long.class).single()).isZero();
     }
 }

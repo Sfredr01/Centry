@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(FixedClockConfig.class)
 class LayoutTest {
 
-    private static final List<String> PAGES = List.of("/", "/add", "/budgets");
+    private static final List<String> PAGES = List.of("/", "/add", "/budgets", "/subscriptions");
 
     @Autowired
     private MockMvc mockMvc;
@@ -66,12 +66,21 @@ class LayoutTest {
         for (String path : PAGES) {
             Document page = page(path);
 
-            // Bottom navigation for thumbs: Dashboard, Add in the middle, Budgets.
-            assertThat(page.select("nav.tabbar a").eachAttr("href")).as(path).containsExactly("/", "/add", "/budgets");
+            // Bottom navigation for thumbs: Dashboard, Add, Budgets, Subs.
+            assertThat(page.select("nav.tabbar a").eachAttr("href")).as(path)
+                    .containsExactly("/", "/add", "/budgets", "/subscriptions");
             assertThat(page.select("nav.tabbar a[aria-current=page]").eachAttr("href")).as(path).containsExactly(path);
             // The Add tab is an icon only, so it needs a name.
             assertThat(page.select("nav.tabbar a[href=/add]").attr("aria-label")).as(path).isEqualTo("Add expense");
         }
+    }
+
+    @Test
+    void tabBarHasSubscriptionsTab() throws Exception {
+        var tab = page("/").selectFirst("nav.tabbar a[href=/subscriptions]");
+
+        assertThat(tab.text()).isEqualTo("Subs");
+        assertThat(tab.select("svg[aria-hidden=true]")).hasSize(1);
     }
 
     @Test
