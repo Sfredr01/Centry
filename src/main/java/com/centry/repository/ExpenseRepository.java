@@ -7,8 +7,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,6 +82,23 @@ public class ExpenseRepository {
                 : jdbc.sql(SELECT + " WHERE spent_by = ? ORDER BY occurred_at DESC, id DESC LIMIT ?")
                         .params(spentBy, limit))
                 .query(ExpenseRepository::map).list();
+    }
+
+    /**
+     * Everything spent in the month, every category, budgeted or not.
+     *
+     * @param spentBy only this member's spend, or null for everyone's
+     */
+    public BigDecimal monthTotal(YearMonth month, Long spentBy) {
+        // Same half-open text bounds as BudgetStatusQuery.spentCents.
+        String sql = "SELECT COALESCE(SUM(amount_cents), 0) FROM expense WHERE occurred_at >= ? AND occurred_at < ?";
+        List<Object> params = new ArrayList<>(List.of(Cents.toText(month.atDay(1).atStartOfDay()),
+                Cents.toText(month.plusMonths(1).atDay(1).atStartOfDay())));
+        if (spentBy != null) {
+            sql += " AND spent_by = ?";
+            params.add(spentBy);
+        }
+        return BigDecimal.valueOf(jdbc.sql(sql).params(params).query(Long.class).single(), 2);
     }
 
     /** Categories already used, one per normalized key (see {@code Keys.of}) in the latest spelling, newest first. */

@@ -109,11 +109,57 @@ class DashboardPageTest {
             spend(String.format("shop-%02d", day), "misc", day + ".00", LocalDateTime.of(2026, 3, day, 12, 0));
         }
 
-        var rows = dashboard().select("#recent-expenses tbody tr");
+        var rows = dashboard().select("#recent-expenses li.expense");
 
         assertThat(rows).hasSize(20);
-        assertThat(rows.get(0).text()).contains("2026-03-25").contains("shop-25").contains("misc").contains("25.00");
+        assertThat(rows.get(0).text()).contains("Mar 25").contains("shop-25").contains("misc").contains("25.00");
         assertThat(rows.get(19).text()).contains("shop-06");
+    }
+
+    @Test
+    void monthSummaryShowsTotalSpentAgainstEveryBudget() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("50.00"), 80);
+        spendBy(mom, "Market", "Food", "85.00", MARCH_2);
+        // Unbudgeted spend still counts toward the month.
+        spendBy(kid, "Hardware", "home", "12.50", MARCH_2);
+        spendBy(kid, "Market", "Food", "40.00", LocalDateTime.of(2026, 2, 28, 23, 59));
+
+        Element summary = dashboard("/").selectFirst("#month-summary");
+        assertThat(summary.select(".amount").text()).isEqualTo("97.50");
+        assertThat(summary.text()).contains("March").contains("of 150.00 budgeted");
+
+        // Scoped to one member like the rest of the page.
+        assertThat(dashboard("/?member=" + kid).select("#month-summary .amount").text()).isEqualTo("12.50");
+    }
+
+    @Test
+    void monthSummaryLeavesOutTheBudgetedTotalWhenThereAreNoBudgets() throws Exception {
+        spend("Market", "Food", "5.00", MARCH_2);
+
+        Element summary = dashboard().selectFirst("#month-summary");
+        assertThat(summary.select(".amount").text()).isEqualTo("5.00");
+        assertThat(summary.text()).doesNotContain("budgeted");
+    }
+
+    @Test
+    void budgetBarsSayTheStateAndWhatIsLeftInWords() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("50.00"), 80);
+        budgets.upsert("home", new BigDecimal("200.00"), 80);
+        spend("Market", "Food", "85.00", MARCH_2);
+        spend("Cinema", "fun", "62.75", MARCH_2);
+        spend("Hardware", "home", "10.00", MARCH_2);
+
+        var bars = dashboard().select("#budget-bars .budget-bar");
+
+        assertThat(bars.eachText()).hasSize(3);
+        assertThat(bars.get(0).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
+        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("15.00 left");
+        assertThat(bars.get(1).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
+        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("12.75 over");
+        assertThat(bars.get(2).select(".pill[data-level=OK]").text()).isEqualTo("On track");
+        assertThat(bars.get(2).select(".remaining").text()).isEqualTo("190.00 left");
     }
 
     @Test
@@ -139,14 +185,14 @@ class DashboardPageTest {
         assertThat(kidOnly.selectFirst("progress").attr("value")).isEqualTo("30.00");
         // The limit stays the household's.
         assertThat(kidOnly.selectFirst("progress").attr("max")).isEqualTo("100.00");
-        assertThat(kidOnly.select("#recent-expenses tbody tr")).hasSize(1);
-        assertThat(kidOnly.select("#recent-expenses tbody tr").text()).contains("Candy");
+        assertThat(kidOnly.select("#recent-expenses li.expense")).hasSize(1);
+        assertThat(kidOnly.select("#recent-expenses li.expense").text()).contains("Candy");
         assertThat(kidOnly.select("#member-filter a").eachText()).containsExactly("Everyone", "admin", "Mom", "Kid");
         assertThat(kidOnly.select("#member-filter a[aria-current]").eachText()).containsExactly("Kid");
 
         Document everyone = dashboard("/");
         assertThat(everyone.selectFirst("progress").attr("value")).isEqualTo("45.00");
-        assertThat(everyone.select("#recent-expenses tbody tr")).hasSize(3);
+        assertThat(everyone.select("#recent-expenses li.expense")).hasSize(3);
         assertThat(everyone.select("#member-filter a[aria-current]").eachText()).containsExactly("Everyone");
         // Works without JavaScript: plain links.
         assertThat(everyone.select("#member-filter a").eachAttr("href")).contains("/?member=" + kid, "/");
@@ -160,7 +206,7 @@ class DashboardPageTest {
 
         Document page = dashboard("/?member=" + member);
 
-        assertThat(page.select("#recent-expenses tbody tr")).hasSize(2);
+        assertThat(page.select("#recent-expenses li.expense")).hasSize(2);
         assertThat(page.select("#member-filter a[aria-current]").eachText()).containsExactly("Everyone");
     }
 
@@ -169,13 +215,11 @@ class DashboardPageTest {
         spendBy(kid, "Candy", "Food", "3.00", MARCH_2);
         spendBy(null, "Legacy", "Food", "5.00", MARCH_2.plusHours(1));
 
-        var rows = dashboard("/").select("#recent-expenses tbody tr");
+        var rows = dashboard("/").select("#recent-expenses li.expense");
 
-        // Newest first: the unattributed one shows no name, the other names its spender under the merchant.
-        assertThat(rows.get(0).select("small.muted")).isEmpty();
-        assertThat(rows.get(1).select("td:nth-child(2) small.muted").text()).isEqualTo("Kid");
-        // Still four columns: the name must not cost a phone-width column.
-        assertThat(rows.get(1).select("td")).hasSize(4);
+        // Newest first: the unattributed one shows no name, the other names its spender on the meta line.
+        assertThat(rows.get(0).select(".spender")).isEmpty();
+        assertThat(rows.get(1).select(".meta .spender").text()).isEqualTo("Kid");
     }
 
     @Test
@@ -187,11 +231,10 @@ class DashboardPageTest {
         ExpenseEntity legacy = expenses.save(new ExpenseEntity(null, "old", "Old", new BigDecimal("3.00"), "Food",
                 MARCH_2.plusHours(2), null, null));
 
-        // Mom: only the one she created. The link is an extra line under the merchant, not a fifth column.
+        // Mom: only the one she created. The link sits on the row's meta line.
         Document asMom = dashboard("/");
         assertThat(asMom.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
                 .containsExactly("/expenses/" + mine.id() + "/edit");
-        assertThat(asMom.select("#recent-expenses tbody tr:first-child td")).hasSize(4);
 
         // Admin: every row, including the one with no creator.
         Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))

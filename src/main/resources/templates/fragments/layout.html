@@ -6,7 +6,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#0172ad">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#2f5d3a">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121812">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
     <!--/* htmx ignores 4xx by default; a 422 carries the form with its inline errors, so swap it. */-->
@@ -21,23 +22,22 @@
     <script th:src="@{/vendor/htmx.min.js}" defer></script>
 </head>
 <body th:attr='hx-headers=|{"${_csrf.headerName}":"${_csrf.token}"}|'>
-<header class="container" sec:authorize="isAuthenticated()">
-    <nav>
-        <ul>
-            <li><a th:href="@{/add}">Add</a></li>
-            <li><a th:href="@{/}">Dashboard</a></li>
-            <li><a th:href="@{/budgets}">Budgets</a></li>
-        </ul>
-        <ul>
-            <li>
-                <form method="post" th:action="@{/logout}" class="signed-in">
-                    <span sec:authentication="name">user</span>
-                    <button type="submit" class="outline secondary">Log out</button>
-                </form>
-            </li>
-        </ul>
-    </nav>
+<header class="container appbar" sec:authorize="isAuthenticated()">
+    <a class="brand" th:href="@{/}"><img th:src="@{/icons/icon.svg}" src="/icons/icon.svg" alt="" width="28" height="28">Centry</a>
+    <form method="post" th:action="@{/logout}" class="signed-in">
+        <span sec:authentication="name">user</span>
+        <button type="submit" class="outline secondary">Log out</button>
+    </form>
 </header>
 <th:block th:insert="${content}"></th:block>
+<!--/* Bottom navigation where thumbs reach. The page title says which tab is current. */-->
+<nav class="tabbar" aria-label="Main" sec:authorize="isAuthenticated()">
+    <a th:href="@{/}" th:attr="aria-current=${title == 'Dashboard'} ? 'page'">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z"/></svg>Dashboard</a>
+    <a th:href="@{/add}" class="add" aria-label="Add expense" th:attr="aria-current=${title == 'Add expense'} ? 'page'">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+    <a th:href="@{/budgets}" th:attr="aria-current=${title == 'Budgets'} ? 'page'">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Budgets</a>
+</nav>
 </body>
 </html>

@@ -50,13 +50,44 @@ class LayoutTest {
     }
 
     @Test
-    void navShowsUsernameAndLogoutForm() throws Exception {
+    void appBarShowsBrandUsernameAndLogoutForm() throws Exception {
         Document page = page("/");
 
-        assertThat(page.select("header nav a").eachAttr("href")).containsExactly("/add", "/", "/budgets");
+        assertThat(page.select("header a.brand[href=/] img[src=/icons/icon.svg]")).hasSize(1);
+        assertThat(page.select("header a.brand").text()).isEqualTo("Centry");
         assertThat(page.select("header .signed-in span").text()).isEqualTo("mom");
         assertThat(page.select("header form[method=post][action=/logout] input[type=hidden][name=_csrf]"))
                 .hasSize(1);
         assertThat(page.select("header form[action=/logout] button")).hasSize(1);
+    }
+
+    @Test
+    void tabBarLinksEveryPageAndMarksTheCurrentOne() throws Exception {
+        for (String path : PAGES) {
+            Document page = page(path);
+
+            // Bottom navigation for thumbs: Dashboard, Add in the middle, Budgets.
+            assertThat(page.select("nav.tabbar a").eachAttr("href")).as(path).containsExactly("/", "/add", "/budgets");
+            assertThat(page.select("nav.tabbar a[aria-current=page]").eachAttr("href")).as(path).containsExactly(path);
+            // The Add tab is an icon only, so it needs a name.
+            assertThat(page.select("nav.tabbar a[href=/add]").attr("aria-label")).as(path).isEqualTo("Add expense");
+        }
+    }
+
+    @Test
+    void loginPageHasNoTabBar() throws Exception {
+        Document login = Html.of(mockMvc.perform(get("/login")).andExpect(status().isOk()));
+
+        assertThat(login.select("nav.tabbar")).isEmpty();
+    }
+
+    @Test
+    void themeColorIsForestByDayAndForestFloorByNight() throws Exception {
+        Document page = page("/");
+
+        assertThat(page.select("meta[name=theme-color][media=(prefers-color-scheme: light)]").attr("content"))
+                .isEqualTo("#2f5d3a");
+        assertThat(page.select("meta[name=theme-color][media=(prefers-color-scheme: dark)]").attr("content"))
+                .isEqualTo("#121812");
     }
 }

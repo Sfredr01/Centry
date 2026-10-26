@@ -38,8 +38,8 @@ class StaticAssetsTest {
                 .andExpect(jsonPath("$.name").value("Centry"))
                 .andExpect(jsonPath("$.start_url").value("/add"))
                 .andExpect(jsonPath("$.display").value("standalone"))
-                .andExpect(jsonPath("$.theme_color").isString())
-                .andExpect(jsonPath("$.background_color").isString())
+                .andExpect(jsonPath("$.theme_color").value("#2f5d3a"))
+                .andExpect(jsonPath("$.background_color").value("#f5f1e8"))
                 .andReturn().getResponse().getContentAsString();
 
         // Every icon the manifest lists is really served, without logging in.

@@ -1,5 +1,6 @@
 package com.centry.web;
 
+import com.centry.model.BudgetStatus;
 import com.centry.model.User;
 import com.centry.repository.BudgetStatusQuery;
 import com.centry.repository.ExpenseRepository;
@@ -12,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.YearMonth;
 import java.util.HashMap;
@@ -54,7 +56,11 @@ class DashboardPageController {
         model.addAttribute("month", month);
         model.addAttribute("members", members);
         model.addAttribute("selected", selected);
-        model.addAttribute("budgets", statusQuery.all(month, selected));
+        List<BudgetStatus> budgets = statusQuery.all(month, selected);
+        model.addAttribute("budgets", budgets);
+        model.addAttribute("spentTotal", expenses.monthTotal(month, selected));
+        model.addAttribute("budgetedTotal", budgets.stream().map(BudgetStatus::monthlyLimit)
+                .reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add));
         model.addAttribute("recent", expenses.findRecent(RECENT_LIMIT, selected).stream()
                 .map(expense -> new RecentExpense(expense, names.get(expense.spentBy()), actor.canModify(expense)))
                 .toList());

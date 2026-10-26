@@ -1,29 +1,225 @@
-/* Pico does the styling; this file only holds what Pico has no class for. */
+/* Centry brand over Pico. Tokens come from the Centry design system (tokens.json); Pico's own variables are
+   pointed at them, and the rest of this file holds what Pico has no class for. */
+
+/* ---- Tokens: parchment by day, forest floor by night ---- */
+:root {
+    --surface: #f5f1e8;
+    --surface-raised: #fffcf5;
+    --surface-sunken: #ebe4d6;
+    --line: #ddd3c1;
+    --line-strong: #8a7b63;
+    --ink: #1f2a1f;
+    --ink-muted: #5a5747;
+    --forest: #2f5d3a;
+    --forest-hover: #244a2d;
+    --on-forest: #fffcf5;
+    --fern: #5c8a45;
+    --fern-soft: #e1ead5;
+    --bark: #6e4b2e;
+    --bark-soft: #efe3cf;
+    --ochre: #8a5d00;
+    --ochre-fill: #9a6806;
+    --ochre-soft: #f6e8c8;
+    --rust: #9c3b25;
+    --rust-soft: #f5ddd3;
+    --focus: var(--forest);
+    --shadow-card: 0 1px 2px rgba(60, 44, 24, 0.08);
+    --shadow-bar: 0 -1px 0 #ddd3c1;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+    --tap-target: 44px;
+    --content-max: 640px;
+    --tabbar-height: 64px;
+    /* Fraunces and Source Sans 3 when installed; nothing is fetched, so these fall back to system faces. */
+    --font-display: "Fraunces", Georgia, serif;
+    --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --surface: #121812;
+        --surface-raised: #1b231a;
+        --surface-sunken: #0d120d;
+        --line: #2c372b;
+        --line-strong: #76846f;
+        --ink: #ece6d8;
+        --ink-muted: #aaa796;
+        --forest: #94c47e;
+        --forest-hover: #a9d495;
+        --on-forest: #122012;
+        --fern: #7fae63;
+        --fern-soft: #223221;
+        --bark: #c9a173;
+        --bark-soft: #2c251b;
+        --ochre: #e2b552;
+        --ochre-fill: #d9a53e;
+        --ochre-soft: #2f2714;
+        --rust: #ec8a72;
+        --rust-soft: #33201a;
+        --focus: var(--forest-hover);
+        --shadow-card: none;
+        --shadow-bar: 0 -1px 0 #2c372b;
+    }
+}
+
+/* ---- Pico mapped onto the tokens. Same selector as Pico's theme blocks, later in the cascade, so it wins in
+   both colour schemes. ---- */
+:root:not([data-theme]) {
+    --pico-font-family: var(--font-sans);
+    --pico-border-radius: var(--radius-md);
+    --pico-background-color: var(--surface);
+    --pico-color: var(--ink);
+    --pico-h1-color: var(--ink);
+    --pico-h2-color: var(--ink);
+    --pico-h3-color: var(--ink);
+    --pico-muted-color: var(--ink-muted);
+    --pico-muted-border-color: var(--line);
+    --pico-primary: var(--forest);
+    --pico-primary-background: var(--forest);
+    --pico-primary-border: var(--forest);
+    --pico-primary-underline: var(--forest);
+    --pico-primary-hover: var(--forest-hover);
+    --pico-primary-hover-background: var(--forest-hover);
+    --pico-primary-hover-border: var(--forest-hover);
+    --pico-primary-hover-underline: var(--forest-hover);
+    --pico-primary-focus: var(--focus);
+    --pico-primary-inverse: var(--on-forest);
+    --pico-secondary: var(--ink);
+    --pico-secondary-background: var(--surface-raised);
+    --pico-secondary-border: var(--line-strong);
+    --pico-secondary-hover: var(--ink);
+    --pico-secondary-hover-background: var(--surface-sunken);
+    --pico-secondary-hover-border: var(--line-strong);
+    --pico-secondary-focus: var(--focus);
+    --pico-secondary-inverse: var(--ink);
+    --pico-card-background-color: var(--surface-raised);
+    --pico-card-sectioning-background-color: var(--surface-raised);
+    --pico-card-box-shadow: var(--shadow-card);
+    --pico-form-element-background-color: var(--surface-raised);
+    --pico-form-element-active-background-color: var(--surface-raised);
+    --pico-form-element-border-color: var(--line-strong);
+    --pico-form-element-active-border-color: var(--forest);
+    --pico-form-element-focus-color: var(--focus);
+    --pico-form-element-color: var(--ink);
+    --pico-form-element-placeholder-color: var(--ink-muted);
+    --pico-form-element-invalid-border-color: var(--rust);
+    --pico-form-element-invalid-active-border-color: var(--rust);
+    --pico-progress-background-color: var(--surface-sunken);
+    --pico-progress-color: var(--fern);
+    --pico-del-color: var(--rust);
+    --pico-ins-color: var(--forest);
+    --pico-switch-checked-background-color: var(--forest);
+    --pico-text-selection-color: var(--fern-soft);
+}
+
+/* ---- Base ---- */
+h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: -.01em; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* Inputs at 16px stop iOS zooming on focus. */
+input, select, textarea { font-size: 16px; }
+.muted { color: var(--ink-muted); }
+[role="alert"] { color: var(--rust); }
+main.container { max-width: var(--content-max); }
+.amount, .figure, .remaining { font-variant-numeric: lining-nums tabular-nums; }
+
+/* ---- App bar ---- */
+.appbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+    padding-block: var(--space-3); max-width: var(--content-max); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: var(--space-2); color: var(--ink); text-decoration: none;
+    font: 600 22px/28px var(--font-display); }
+.brand img { border-radius: 7px; }
 .signed-in { display: flex; gap: .75rem; align-items: center; margin: 0; }
 .signed-in button { width: auto; margin: 0; padding: .25rem .75rem; white-space: nowrap; }
 
-/* Budget bars: Pico draws progress with --pico-progress-color (its primary), so recolor by budget level. */
-progress[data-level="WARNING_EXCEEDED"] { --pico-progress-color: #e0a100; }
-progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: #d64545; }
+/* ---- Bottom tab bar: Dashboard, Add, Budgets ---- */
+body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom)); }
+.tabbar { position: fixed; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--surface-raised); box-shadow: var(--shadow-bar);
+    padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom)); }
+.tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: 56px; border-radius: var(--radius-md); color: var(--ink-muted); text-decoration: none;
+    font-size: 13px; line-height: 16px; font-weight: 600; }
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
+    stroke-linejoin: round; }
+.tabbar a[aria-current="page"] { color: var(--forest); }
+.tabbar a.add { color: var(--on-forest); }
+.tabbar a.add svg { width: 44px; height: 44px; padding: 10px; border-radius: var(--radius-pill); background: var(--forest); }
+.tabbar a.add[aria-current="page"] svg { background: var(--forest-hover); }
 
-/* Keep tables inside a phone screen: tighter cells, dates on one line. */
-table { font-size: .9rem; }
-th, td { padding: .5rem .4rem; }
-td:first-child { white-space: nowrap; }
-/* Who spent it sits under the merchant instead of costing a column. */
-td small { display: block; }
+/* ---- Member filter chips: scroll sideways rather than wrap ---- */
+/* The id beats Pico's negative margin on a nav's first list. */
+#member-filter .chips { margin: 0; }
+.chips { display: flex; gap: var(--space-2); overflow-x: auto; padding: 0 0 var(--space-1); margin: 0; scrollbar-width: none; }
+.chips li { list-style: none; padding: 0; margin: 0; }
+#member-filter { margin-bottom: var(--space-4); }
+.chips a { display: inline-flex; align-items: center; min-height: 36px; margin: 0; padding: 0 var(--space-4);
+    border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--ink); text-decoration: none;
+    white-space: nowrap; font-weight: 600; }
+.chips a[aria-current="true"] { background: var(--forest); border-color: var(--forest); color: var(--on-forest); }
 
-/* Budget cards: category and status on one line; Pico's .grid keeps the two inputs side by side
-   (it collapses below its breakpoint, so force two columns: the inputs are short numbers). */
+/* ---- Month summary ---- */
+.summary { display: grid; gap: var(--space-1); margin-bottom: var(--space-6); padding: var(--space-4);
+    border-radius: var(--radius-lg); background: var(--bark-soft); }
+.summary .overline { font-size: 13px; line-height: 16px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--bark); }
+.summary .amount { font: 600 40px/44px var(--font-display); color: var(--ink); }
+.summary .muted { font-size: 14px; }
+
+/* ---- Budget bars ---- */
+#budget-bars { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
+.budget-bar { margin: 0; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.budget-bar label { margin: 0; }
+.budget-bar .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.budget-bar .figure { color: var(--ink-muted); font-size: 14px; }
+.budget-bar .figure b { color: var(--ink); font-size: 16px; }
+.budget-bar progress { height: 12px; margin: var(--space-2) 0; border-radius: var(--radius-pill); }
+.budget-bar .foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); }
+/* Pico draws progress with --pico-progress-color, so recolor by budget level. */
+progress[data-level="WARNING_EXCEEDED"] { --pico-progress-color: var(--ochre-fill); }
+progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
+
+/* ---- Status pill: word, tint, and a dot that turns into a diamond when over ---- */
+.pill { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2);
+    border-radius: var(--radius-pill); font-size: 13px; line-height: 16px; font-weight: 600; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pill[data-level="OK"] { background: var(--fern-soft); color: var(--forest); }
+.pill[data-level="WARNING_EXCEEDED"] { background: var(--ochre-soft); color: var(--ochre); }
+.pill[data-level="LIMIT_EXCEEDED"] { background: var(--rust-soft); color: var(--rust); }
+.pill[data-level="LIMIT_EXCEEDED"]::before { border-radius: 1px; transform: rotate(45deg); }
+
+/* ---- Recent expenses: stacked rows ---- */
+.expense-list { padding: 0; margin: 0; border: 1px solid var(--line); border-radius: var(--radius-lg);
+    background: var(--surface-raised); }
+.expense-list li.expense { list-style: none; display: flex; align-items: center; gap: var(--space-3); min-height: 60px;
+    margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+.expense-list li.expense:last-child { border-bottom: 0; }
+.expense .main { flex: 1; min-width: 0; }
+.expense .merchant { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expense .meta { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: 14px;
+    line-height: 20px; color: var(--ink-muted); }
+.expense .meta a { font-weight: 600; }
+.expense .amount { font-weight: 600; text-align: right; }
+.tag { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--bark-soft);
+    color: var(--bark); font-size: 13px; line-height: 22px; font-weight: 600; }
+
+/* ---- Empty state ---- */
+.empty { display: grid; justify-items: center; gap: var(--space-3); text-align: center; padding: var(--space-8) var(--space-4);
+    border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); }
+.empty h3 { margin: 0; font-size: 19px; }
+.empty p { margin: 0; max-width: 32ch; }
+
+/* ---- Budgets page cards: category and status on one line; two short inputs side by side ---- */
 .budget header { display: flex; justify-content: space-between; gap: .5rem; }
 .budget .grid { grid-template-columns: 1fr 1fr; }
 .budget form { margin-bottom: .5rem; }
-[data-level="WARNING_EXCEEDED"]:not(progress) { color: #e0a100; }
-[data-level="LIMIT_EXCEEDED"]:not(progress) { color: #d64545; }
-
-/* Nav must fit 375px: let items wrap instead of pushing the page sideways. */
-nav { flex-wrap: wrap; }
-nav ul { flex-wrap: wrap; }
-
-[role="alert"] { color: var(--pico-del-color); }
-.muted { color: var(--pico-muted-color); }
+[data-level="WARNING_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--ochre); }
+[data-level="LIMIT_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--rust); }
