@@ -6,7 +6,6 @@ import com.centry.repository.ApiTokenRepository;
 import com.centry.repository.UserRepository;
 import com.centry.security.ApiTokens;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,7 +28,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/tokens")
-@RequiredArgsConstructor
 public class TokenController {
 
     /** The only response that ever carries the plain token. */
@@ -39,6 +37,12 @@ public class TokenController {
     private final ApiTokenRepository tokens;
     private final UserRepository users;
     private final Clock clock;
+
+    public TokenController(ApiTokenRepository tokens, UserRepository users, Clock clock) {
+        this.tokens = tokens;
+        this.users = users;
+        this.clock = clock;
+    }
 
     @PostMapping
     public ResponseEntity<Issued> issue(@Valid @RequestBody TokenRequest request, Authentication caller) {
