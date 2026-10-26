@@ -8,8 +8,10 @@ at home, and you use it from a phone or laptop.
 - One-time WARN (at the warning percent, default 80%) and EXCEEDED (at 100%) alerts per category and month, sent
   to ntfy or a Discord/Slack-style webhook. Failed deliveries are retried for up to 24 hours.
 - Who spent what: each expense is attributed to a household member, and the dashboard filters by member.
-- Roles: an admin manages members and budgets. A member adds expenses and edits or deletes only the ones they
+- Roles: an admin manages members, budgets and subscriptions. A member adds expenses and edits or deletes only the ones they
   created. Members without a password can be picked as the spender but cannot log in.
+- Subscriptions: the Subs tab lists recurring charges (monthly or yearly) with their expected amount, next due
+  date and a yearly total. For now an admin adds and edits them by hand; everyone signed in can read the list.
 - Optional Kafka ingest, off by default.
 
 Centry is for a home LAN or a tailnet. Read [SECURITY.md](SECURITY.md) before you expose it anywhere.
@@ -121,6 +123,19 @@ scripts/restore.sh nightly-20260315.db
 It stops Centry, moves the current database to `data/backups/pre-restore-<UTC time>.db`, copies the backup into
 place, starts Centry and waits for it to be healthy. If you restored the wrong day, run `scripts/restore.sh` with
 that `pre-restore-...` name to put things back. Use `COMPOSE_FILES` as for upgrades if you run the Kafka override.
+### Monthly digest
+
+On the 1st of each month at 08:00 household time (`TZ`), one low-priority notification summarises the month before:
+the total spent, each budgeted category against its limit (`Groceries $512.40 / $600 (85%)`), spend with no
+budget, the top three merchants, and spend per household member (expenses without a member count as
+"Unassigned"). A month without expenses still sends "No expenses recorded in <Month>", so you can see the job
+runs.
+
+- Each month is sent once, even across restarts. If a channel fails, the digest is retried every few minutes for
+  24 hours, like budget alerts.
+- If the app was down at 08:00, the digest goes out within the hour after it is back up, up to three days later.
+- `CENTRY_DIGEST_CRON` changes the schedule (Spring cron with seconds, default `0 0 8 1 * *`).
+  `CENTRY_DIGEST_ENABLED=false` turns the digest off.
 
 ## Upgrade and rollback
 

@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,9 +35,9 @@ class NtfyNotifierTest {
                 Duration.ofMinutes(5), Duration.ofSeconds(5), Duration.ofSeconds(10)));
     }
 
-    private static BudgetAlertEvent alert(String category, BudgetLevel level) {
-        return new BudgetAlertEvent(category, new BigDecimal("120.00"), new BigDecimal("100.00"),
-                new BigDecimal("80.00"), level, "Over budget");
+    private static Notification alert(String category, BudgetLevel level) {
+        return AlertDispatcher.toNotification(new BudgetAlertEvent(category, new BigDecimal("120.00"),
+                new BigDecimal("100.00"), new BigDecimal("80.00"), level, "Over budget"));
     }
 
     @Test
@@ -61,6 +62,15 @@ class NtfyNotifierTest {
             assertThat(r.header("Priority")).isEqualTo("5");
             assertThat(r.header("Tags")).isEqualTo("rotating_light");
         });
+    }
+
+    @Test
+    void lowPriorityIs2AndEmptyTagsSendNoTagsHeader() {
+        notifier(null).send(new Notification("t", "b", Notification.Priority.LOW, List.of()));
+        notifier(null).send(new Notification("t", "b", Notification.Priority.HIGH, List.of("a", "b")));
+
+        assertThat(server.requests()).extracting(r -> r.header("Priority")).containsExactly("2", "5");
+        assertThat(server.requests()).extracting(r -> r.header("Tags")).containsExactly(null, "a,b");
     }
 
     @Test

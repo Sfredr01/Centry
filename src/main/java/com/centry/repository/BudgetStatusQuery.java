@@ -64,8 +64,7 @@ public class BudgetStatusQuery {
         String sql = """
                 SELECT COALESCE(SUM(amount_cents), 0) FROM expense
                  WHERE lower(trim(category)) = ? AND occurred_at >= ? AND occurred_at < ?""";
-        List<Object> params = new ArrayList<>(List.of(categoryKey, Cents.toText(month.atDay(1).atStartOfDay()),
-                Cents.toText(month.plusMonths(1).atDay(1).atStartOfDay())));
+        List<Object> params = new ArrayList<>(List.of(categoryKey, Cents.monthStart(month), Cents.monthEnd(month)));
         if (spentBy != null) {
             sql += " AND spent_by = ?";
             params.add(spentBy);
