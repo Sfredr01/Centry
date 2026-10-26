@@ -38,6 +38,7 @@ class QuickAddController {
     private final CategoryChoices categories;
     private final UserRepository users;
     private final ExpenseFormMapper mapper;
+    private final Money money;
 
     @GetMapping("/add")
     String form(@RequestParam Map<String, String> params, Authentication caller, Model model) {
@@ -71,8 +72,8 @@ class QuickAddController {
         if (!fragment) {
             return "redirect:/add?saved";
         }
-        model.addAttribute("message", "Saved %s at %s (%s).".formatted(saved.amount(), saved.merchant(),
-                saved.category()));
+        model.addAttribute("message", "Saved %s at %s (%s).".formatted(money.format(saved.amount()),
+                saved.merchant(), saved.category()));
         return render(model, ExpenseForm.blank(mapper.today(), saved.category(), form.spentBy()), Map.of(), PANEL);
     }
 

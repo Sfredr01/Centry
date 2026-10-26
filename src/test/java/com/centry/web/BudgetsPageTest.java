@@ -94,7 +94,7 @@ class BudgetsPageTest {
         // One card per budget, not a table: a five-column table with inputs cannot fit a phone screen.
         assertThat(page.select("#budgets table")).isEmpty();
         var card = page.selectFirst("#budgets article");
-        assertThat(card.text()).contains("food").contains("85.00");
+        assertThat(card.text()).contains("food").contains("$85.00");
         var save = card.selectFirst("form[method=post][action=/budgets/food]");
         assertThat(save.select("input[name=monthlyLimit]").attr("value")).isEqualTo("100.00");
         assertThat(save.select("input[name=warnPercent]").attr("value")).isEqualTo("80");
@@ -129,8 +129,8 @@ class BudgetsPageTest {
         Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
 
         assertThat(page.select("#budgets table")).isEmpty();
-        assertThat(page.selectFirst("#budgets article").text()).contains("food").contains("85.00")
-                .contains("100.00").contains("80");
+        assertThat(page.selectFirst("#budgets article").text()).contains("food").contains("$85.00")
+                .contains("$100.00").contains("80");
         assertThat(page.select("#budgets input")).isEmpty();
         // Only the logout form is left.
         assertThat(page.select("form").eachAttr("action")).containsExactly("/logout");

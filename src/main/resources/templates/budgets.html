@@ -18,8 +18,8 @@
                     <span th:case="*" data-level="LIMIT_EXCEEDED">Over limit</span>
                 </span>
             </header>
-            <p>Spent <span th:text="${b.spent}">85.00</span>
-                <span sec:authorize="!hasRole('ADMIN')">of <span th:text="${b.monthlyLimit}">100.00</span>,
+            <p>Spent <span th:text="${@money.format(b.spent)}">$85.00</span>
+                <span sec:authorize="!hasRole('ADMIN')">of <span th:text="${@money.format(b.monthlyLimit)}">$100.00</span>,
                     warning at <span th:text="${b.warnPercent}">80</span>%</span></p>
             <div sec:authorize="hasRole('ADMIN')">
                 <form method="post" th:action="@{/budgets/{c}(c=${b.category})}">

@@ -139,7 +139,7 @@ class QuickAddPageTest {
 
         // A fragment, not a whole page.
         assertThat(html).doesNotContain("<nav").doesNotContain("<html");
-        assertThat(panel.select("#add-panel [role=status]").text()).contains("12.50").contains("Market");
+        assertThat(panel.select("#add-panel [role=status]").text()).contains("$12.50").contains("Market");
         assertThat(panel.select("#add-panel [role=alert]")).isEmpty();
         // Fresh form: new reference, amount cleared, category kept.
         String freshRef = panel.selectFirst("input[name=clientRef]").attr("value");

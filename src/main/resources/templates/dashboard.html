@@ -19,8 +19,8 @@
     <!--/* The one number to read first. */-->
     <section id="month-summary" class="summary">
         <span class="overline" th:text="|Spent in ${#temporals.format(month, 'MMMM')}|">Spent in March</span>
-        <span class="amount" th:text="${spentTotal}">97.50</span>
-        <span class="muted" th:unless="${budgets.empty}" th:text="|of ${budgetedTotal} budgeted|">of 150.00 budgeted</span>
+        <span class="amount" th:text="${@money.format(spentTotal)}">$97.50</span>
+        <span class="muted" th:unless="${budgets.empty}" th:text="|of ${@money.format(budgetedTotal)} budgeted|">of $150.00 budgeted</span>
     </section>
 
     <section th:if="${!budgets.empty}" id="budget-bars">
@@ -28,7 +28,7 @@
             <label>
                 <span class="head">
                     <strong th:text="${b.category}">food</strong>
-                    <span class="figure"><b th:text="${b.spent}">85.00</b> of <span th:text="${b.monthlyLimit}">100.00</span></span>
+                    <span class="figure"><b th:text="${@money.format(b.spent)}">$85.00</b> of <span th:text="${@money.format(b.monthlyLimit)}">$100.00</span></span>
                 </span>
                 <progress th:value="${b.spent}" th:max="${b.monthlyLimit}" th:attr="data-level=${b.level}"></progress>
             </label>
@@ -39,8 +39,8 @@
                     <th:block th:case="'WARNING_EXCEEDED'">Near limit</th:block>
                     <th:block th:case="*">Over limit</th:block>
                 </span>
-                <span class="remaining" th:text="${over} ? |${b.spent.subtract(b.monthlyLimit)} over|
-                        : |${b.monthlyLimit.subtract(b.spent)} left|">15.00 left</span>
+                <span class="remaining" th:text="${over} ? |${@money.format(b.spent.subtract(b.monthlyLimit))} over|
+                        : |${@money.format(b.monthlyLimit.subtract(b.spent))} left|">$15.00 left</span>
             </span>
         </article>
     </section>
@@ -66,7 +66,7 @@
                         <a th:if="${r.editable}" th:href="@{/expenses/{id}/edit(id=${r.expense.id})}">Edit</a>
                     </div>
                 </div>
-                <div class="amount" th:text="${r.expense.amount}">12.00</div>
+                <div class="amount" th:text="${@money.format(r.expense.amount)}">$12.00</div>
             </li>
         </ul>
     </section>

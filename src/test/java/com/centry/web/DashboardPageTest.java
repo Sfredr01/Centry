@@ -126,11 +126,11 @@ class DashboardPageTest {
         spendBy(kid, "Market", "Food", "40.00", LocalDateTime.of(2026, 2, 28, 23, 59));
 
         Element summary = dashboard("/").selectFirst("#month-summary");
-        assertThat(summary.select(".amount").text()).isEqualTo("97.50");
-        assertThat(summary.text()).contains("March").contains("of 150.00 budgeted");
+        assertThat(summary.select(".amount").text()).isEqualTo("$97.50");
+        assertThat(summary.text()).contains("March").contains("of $150.00 budgeted");
 
         // Scoped to one member like the rest of the page.
-        assertThat(dashboard("/?member=" + kid).select("#month-summary .amount").text()).isEqualTo("12.50");
+        assertThat(dashboard("/?member=" + kid).select("#month-summary .amount").text()).isEqualTo("$12.50");
     }
 
     @Test
@@ -138,7 +138,7 @@ class DashboardPageTest {
         spend("Market", "Food", "5.00", MARCH_2);
 
         Element summary = dashboard().selectFirst("#month-summary");
-        assertThat(summary.select(".amount").text()).isEqualTo("5.00");
+        assertThat(summary.select(".amount").text()).isEqualTo("$5.00");
         assertThat(summary.text()).doesNotContain("budgeted");
     }
 
@@ -155,11 +155,24 @@ class DashboardPageTest {
 
         assertThat(bars.eachText()).hasSize(3);
         assertThat(bars.get(0).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
-        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("15.00 left");
+        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("$15.00 left");
         assertThat(bars.get(1).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
-        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("12.75 over");
+        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("$12.75 over");
         assertThat(bars.get(2).select(".pill[data-level=OK]").text()).isEqualTo("On track");
-        assertThat(bars.get(2).select(".remaining").text()).isEqualTo("190.00 left");
+        assertThat(bars.get(2).select(".remaining").text()).isEqualTo("$190.00 left");
+    }
+
+    @Test
+    void moneyShowsWithDollarSignButMachineValuesStayRaw() throws Exception {
+        budgets.upsert("food", new BigDecimal("1234.00"), 80);
+        spend("Market", "food", "1000.50", MARCH_2);
+
+        Document page = dashboard();
+
+        assertThat(page.selectFirst("#budget-bars .figure").text()).isEqualTo("$1,000.50 of $1,234.00");
+        assertThat(page.selectFirst("progress").attr("value")).isEqualTo("1000.50");
+        assertThat(page.selectFirst("progress").attr("max")).isEqualTo("1234.00");
+        assertThat(page.selectFirst("#recent-expenses .amount").text()).isEqualTo("$1,000.50");
     }
 
     @Test
