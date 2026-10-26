@@ -26,6 +26,8 @@ Centry is designed for a home LAN or a private tailnet. It is not designed to fa
   other actuator endpoints are not exposed.
 - **Authentication:** passwords are stored as BCrypt hashes. Browser sessions use a form login with CSRF
   protection and a 30-day remember-me cookie. Members without a password cannot sign in.
+- **API tokens:** phone shortcuts can use a per-user bearer token. Tokens are stored only as SHA-256 hashes,
+  work for recording an expense and nothing else, and are revoked with `DELETE /api/v1/tokens/{id}`.
 - **Roles:** admins manage members and budgets. Members can record expenses, and they can edit or delete only
   expenses they created.
 - **Kafka** (optional): the broker is bound to `127.0.0.1` and has no authentication. Do not change the binding
