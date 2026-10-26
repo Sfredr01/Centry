@@ -97,6 +97,31 @@ Both channels are optional. Set the variables in `.env`, then run `docker compos
   choose a long random name.
 - **Webhook:** `CENTRY_NOTIFY_WEBHOOK_URL`. The payload works with both Discord and Slack.
 
+## Export
+
+Admins see an **Export** card at the bottom of the Budgets page. Pick two days (both included, at most five years
+apart; the defaults are the first and last day of this month) and download a CSV with the columns `date, merchant,
+category, amount, spent_by, created_by, source, transaction_id`. Amounts are plain decimals such as `12.50`.
+`source` is `app` for expenses a person entered and `feed` for the rest (Kafka and older rows). Text that a
+spreadsheet could read as a formula gets a leading `'`, so a merchant called `=1+1` stays text in Excel.
+
+## Backups
+
+Centry copies its database every night at 03:30 household time (`TZ`) to `data/backups/nightly-YYYYMMDD.db` and
+keeps the newest 14. These are separate from the `centry-*.db` files that `scripts/upgrade.sh` writes. Set
+`CENTRY_BACKUP_CRON`, `CENTRY_BACKUP_KEEP` or `CENTRY_BACKUP_ENABLED=false` in `.env` to change that.
+
+To go back to a backup, run this from the install directory (`ls data/backups` lists the names):
+
+```bash
+cd /opt/centry
+scripts/restore.sh nightly-20260315.db
+```
+
+It stops Centry, moves the current database to `data/backups/pre-restore-<UTC time>.db`, copies the backup into
+place, starts Centry and waits for it to be healthy. If you restored the wrong day, run `scripts/restore.sh` with
+that `pre-restore-...` name to put things back. Use `COMPOSE_FILES` as for upgrades if you run the Kafka override.
+
 ## Upgrade and rollback
 
 Run upgrades from the install directory:
@@ -159,6 +184,7 @@ All `/api/**` calls use HTTP Basic authentication with a username and password. 
 | `DELETE /api/v1/budgets/{category}` | admin | Remove a budget. |
 | `GET /api/v1/users` | admin | List members. |
 | `POST /api/v1/users` | admin | Add a member. |
+| `GET /export/expenses.csv?from=YYYY-MM-DD&to=YYYY-MM-DD` | admin | Download expenses as CSV (browser session; both dates required and inclusive). |
 
 Record an expense. `spentBy` is a member id from `GET /api/v1/users`. It is optional and defaults to the caller.
 `transactionId` is optional. Send the same value again to avoid a duplicate, and you get the stored expense back.
@@ -192,6 +218,8 @@ CENTRY_ADMIN_PASSWORD='a-long-test-pass' ./gradlew bootRun
 
 ```bash
 scripts/smoke.sh
+scripts/test-upgrade.sh    # upgrade, rollback and prune
+scripts/test-restore.sh    # restore from a backup
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
