@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<!--/* Reusable pieces; docs/ui-components.md says when to use each. Put th:if / th:each on a wrapping <th:block>,
+     never on the same tag as th:replace: replace runs first (100 against 200 and 300). */-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* A person's initials in a circle. One fixed colour pair: colour is for budget health, not decoration. */-->
+<span th:fragment="avatar(initials)" class="avatar" aria-hidden="true" th:text="${initials}">M</span>
+</body>
+</html>

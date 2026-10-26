@@ -42,4 +42,12 @@ class UserRepositoryTest {
         assertThat(users.existsById(id)).isTrue();
         assertThat(users.existsById(999_999L)).isFalse();
     }
+
+    @Test
+    void displayNameIgnoresUsernameCase() {
+        users.insert("lookup-sam", "Sam Rivera", null, Role.MEMBER, LocalDateTime.of(2026, 1, 1, 0, 0));
+
+        assertThat(users.displayName("LOOKUP-SAM")).hasValue("Sam Rivera");
+        assertThat(users.displayName("lookup-nobody")).isEmpty();
+    }
 }

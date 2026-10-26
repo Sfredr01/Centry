@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 /** Reads never select password_hash; authentication reads it through Spring's own JdbcDaoImpl. */
@@ -51,6 +52,12 @@ public class UserRepository {
     public OptionalLong idByUsername(String username) {
         return jdbc.sql("SELECT id FROM users WHERE username = ?").param(username).query(Long.class).optional()
                 .map(OptionalLong::of).orElseGet(OptionalLong::empty);
+    }
+
+    /** Same case rule as {@link #idByUsername}. */
+    public Optional<String> displayName(String username) {
+        return jdbc.sql("SELECT display_name FROM users WHERE username = ?").param(username).query(String.class)
+                .optional();
     }
 
     public boolean existsById(long id) {
