@@ -179,6 +179,36 @@ class DashboardPageTest {
     }
 
     @Test
+    void editLinkOnlyWhereTheViewerMayEdit() throws Exception {
+        ExpenseEntity mine = expenses.save(new ExpenseEntity(null, "mine", "Market", new BigDecimal("1.00"), "Food",
+                MARCH_2, mom, mom));
+        ExpenseEntity kids = expenses.save(new ExpenseEntity(null, "kids", "Candy", new BigDecimal("2.00"), "Food",
+                MARCH_2.plusHours(1), kid, kid));
+        ExpenseEntity legacy = expenses.save(new ExpenseEntity(null, "old", "Old", new BigDecimal("3.00"), "Food",
+                MARCH_2.plusHours(2), null, null));
+
+        // Mom: only the one she created. The link is an extra line under the merchant, not a fifth column.
+        Document asMom = dashboard("/");
+        assertThat(asMom.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+                .containsExactly("/expenses/" + mine.id() + "/edit");
+        assertThat(asMom.select("#recent-expenses tbody tr:first-child td")).hasSize(4);
+
+        // Admin: every row, including the one with no creator.
+        Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()));
+        assertThat(asAdmin.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+                .containsExactlyInAnyOrder("/expenses/" + mine.id() + "/edit", "/expenses/" + kids.id() + "/edit",
+                        "/expenses/" + legacy.id() + "/edit");
+    }
+
+    @Test
+    void afterAnEditOrDeleteTheDashboardSaysSo() throws Exception {
+        assertThat(dashboard("/?edited").select("[role=status]").text()).contains("updated");
+        assertThat(dashboard("/?deleted").select("[role=status]").text()).contains("deleted");
+        assertThat(dashboard("/").select("[role=status]")).isEmpty();
+    }
+
+    @Test
     void anonymousRedirectsToLogin() throws Exception {
         // A browser always asks for HTML; without it Spring Security answers 403 instead of redirecting.
         mockMvc.perform(get("/").accept(MediaType.TEXT_HTML)).andExpect(status().isFound()).andExpect(redirectedUrl("/login"));

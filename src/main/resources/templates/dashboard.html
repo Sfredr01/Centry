@@ -4,6 +4,8 @@
 <main class="container">
     <h1 th:text="${#temporals.format(month, 'MMMM yyyy')}">March 2026</h1>
 
+    <p role="status" th:if="${message}" th:text="${message}">Expense updated.</p>
+
     <nav id="member-filter" aria-label="Show spending of">
         <ul>
             <li><a th:href="@{/}" th:attr="aria-current=${selected == null} ? 'true'">Everyone</a></li>
@@ -42,6 +44,7 @@
                     <td>
                         <span th:text="${r.expense.merchant}">Market</span>
                         <small class="muted" th:if="${r.spender}" th:text="${r.spender}">Mom</small>
+                        <small th:if="${r.editable}"><a th:href="@{/expenses/{id}/edit(id=${r.expense.id})}">Edit</a></small>
                     </td>
                     <td th:text="${r.expense.category}">food</td>
                     <td th:text="${r.expense.amount}">12.00</td>
