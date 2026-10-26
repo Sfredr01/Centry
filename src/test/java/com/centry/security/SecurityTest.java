@@ -125,6 +125,17 @@ class SecurityTest {
     }
 
     @Test
+    void memberCannotManageSubscriptions() throws Exception {
+        // Everyone signed in may look; writing is the admin's, like budgets.
+        mockMvc.perform(get("/subscriptions").with(mom())).andExpect(status().isOk());
+        for (String path : new String[] {"/subscriptions", "/subscriptions/1", "/subscriptions/1/confirm",
+                "/subscriptions/1/ignore", "/subscriptions/1/delete"}) {
+            mockMvc.perform(post(path).with(mom()).with(csrf())).andExpect(status().isForbidden());
+        }
+        mockMvc.perform(post("/subscriptions/1/delete").with(admin()).with(csrf())).andExpect(status().isFound());
+    }
+
+    @Test
     void adminCanManageBudgetsAndUsers() throws Exception {
         mockMvc.perform(put("/api/v1/budgets/food").with(admin()).contentType(MediaType.APPLICATION_JSON)
                 .content(BUDGET)).andExpect(status().isOk());

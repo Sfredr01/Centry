@@ -109,9 +109,12 @@ public class SecurityConfig {
                                     "/favicon.ico").permitAll()
                             // The browser UI's budget forms; the matching API routes below are the same rule.
                             .requestMatchers(HttpMethod.POST, "/budgets", "/budgets/**").hasRole("ADMIN")
+                            .requestMatchers(HttpMethod.POST, "/subscriptions", "/subscriptions/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.PUT, "/api/v1/budgets/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.DELETE, "/api/v1/budgets/**").hasRole("ADMIN")
                             .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+                            // The whole ledger leaves the app here, so it is the admin's call.
+                            .requestMatchers("/export/**").hasRole("ADMIN")
                             .requestMatchers(API).hasAnyRole("ADMIN", "MEMBER")
                             .anyRequest().authenticated())
                     .httpBasic(basic -> basic.authenticationEntryPoint(unauthorized))

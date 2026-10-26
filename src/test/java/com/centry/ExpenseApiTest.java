@@ -276,7 +276,7 @@ class ExpenseApiTest {
                 .andExpect(status().isCreated());
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(webhookBodies).hasSize(1));
-        assertThat(webhookBodies.get(0)).contains("LIMIT_EXCEEDED");
+        assertThat(webhookBodies.get(0)).contains("🚨 **Centry budget alert: apitest**");
     }
 
     @Test

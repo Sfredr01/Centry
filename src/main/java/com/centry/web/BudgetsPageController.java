@@ -92,7 +92,10 @@ class BudgetsPageController {
     }
 
     private String render(Model model) {
-        model.addAttribute("budgets", statuses.all(YearMonth.now(clock)));
+        YearMonth month = YearMonth.now(clock);
+        model.addAttribute("budgets", statuses.all(month));
+        model.addAttribute("exportFrom", month.atDay(1));
+        model.addAttribute("exportTo", month.atEndOfMonth());
         return "budgets";
     }
 }

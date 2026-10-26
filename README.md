@@ -8,8 +8,10 @@ at home, and you use it from a phone or laptop.
 - One-time WARN (at the warning percent, default 80%) and EXCEEDED (at 100%) alerts per category and month, sent
   to ntfy or a Discord/Slack-style webhook. Failed deliveries are retried for up to 24 hours.
 - Who spent what: each expense is attributed to a household member, and the dashboard filters by member.
-- Roles: an admin manages members and budgets. A member adds expenses and edits or deletes only the ones they
+- Roles: an admin manages members, budgets and subscriptions. A member adds expenses and edits or deletes only the ones they
   created. Members without a password can be picked as the spender but cannot log in.
+- Subscriptions: the Subs tab lists recurring charges (monthly or yearly) with their expected amount, next due
+  date and a yearly total. For now an admin adds and edits them by hand; everyone signed in can read the list.
 - Optional Kafka ingest, off by default.
 
 Centry is for a home LAN or a tailnet. Read [SECURITY.md](SECURITY.md) before you expose it anywhere.
@@ -119,6 +121,44 @@ Both channels are optional. Set the variables in `.env`, then run `docker compos
   choose a long random name.
 - **Webhook:** `CENTRY_NOTIFY_WEBHOOK_URL`. The payload works with both Discord and Slack.
 
+## Export
+
+Admins see an **Export** card at the bottom of the Budgets page. Pick two days (both included, at most five years
+apart; the defaults are the first and last day of this month) and download a CSV with the columns `date, merchant,
+category, amount, spent_by, created_by, source, transaction_id`. Amounts are plain decimals such as `12.50`.
+`source` is `app` for expenses a person entered and `feed` for the rest (Kafka and older rows). Text that a
+spreadsheet could read as a formula gets a leading `'`, so a merchant called `=1+1` stays text in Excel.
+
+## Backups
+
+Centry copies its database every night at 03:30 household time (`TZ`) to `data/backups/nightly-YYYYMMDD.db` and
+keeps the newest 14. These are separate from the `centry-*.db` files that `scripts/upgrade.sh` writes. Set
+`CENTRY_BACKUP_CRON`, `CENTRY_BACKUP_KEEP` or `CENTRY_BACKUP_ENABLED=false` in `.env` to change that.
+
+To go back to a backup, run this from the install directory (`ls data/backups` lists the names):
+
+```bash
+cd /opt/centry
+scripts/restore.sh nightly-20260315.db
+```
+
+It stops Centry, moves the current database to `data/backups/pre-restore-<UTC time>.db`, copies the backup into
+place, starts Centry and waits for it to be healthy. If you restored the wrong day, run `scripts/restore.sh` with
+that `pre-restore-...` name to put things back. Use `COMPOSE_FILES` as for upgrades if you run the Kafka override.
+### Monthly digest
+
+On the 1st of each month at 08:00 household time (`TZ`), one low-priority notification summarises the month before:
+the total spent, each budgeted category against its limit (`Groceries $512.40 / $600 (85%)`), spend with no
+budget, the top three merchants, and spend per household member (expenses without a member count as
+"Unassigned"). A month without expenses still sends "No expenses recorded in <Month>", so you can see the job
+runs.
+
+- Each month is sent once, even across restarts. If a channel fails, the digest is retried every few minutes for
+  24 hours, like budget alerts.
+- If the app was down at 08:00, the digest goes out within the hour after it is back up, up to three days later.
+- `CENTRY_DIGEST_CRON` changes the schedule (Spring cron with seconds, default `0 0 8 1 * *`).
+  `CENTRY_DIGEST_ENABLED=false` turns the digest off.
+
 ## Upgrade and rollback
 
 Run upgrades from the install directory:
@@ -186,6 +226,7 @@ A per-user API token (`Authorization: Bearer ...`) works for `POST /api/v1/expen
 | `POST /api/v1/tokens` | admin, member (Basic only) | Issue an API token. The token is shown once. |
 | `GET /api/v1/tokens` | admin, member (Basic only) | List your own tokens (no secrets). |
 | `DELETE /api/v1/tokens/{id}` | admin, member (Basic only) | Revoke one of your tokens. `404` for anyone else's. |
+| `GET /export/expenses.csv?from=YYYY-MM-DD&to=YYYY-MM-DD` | admin | Download expenses as CSV (browser session; both dates required and inclusive). |
 
 Record an expense. `spentBy` is a member id from `GET /api/v1/users`. It is optional and defaults to the caller.
 `transactionId` is optional. Send the same value again to avoid a duplicate, and you get the stored expense back.
@@ -219,6 +260,8 @@ CENTRY_ADMIN_PASSWORD='a-long-test-pass' ./gradlew bootRun
 
 ```bash
 scripts/smoke.sh
+scripts/test-upgrade.sh    # upgrade, rollback and prune
+scripts/test-restore.sh    # restore from a backup
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.

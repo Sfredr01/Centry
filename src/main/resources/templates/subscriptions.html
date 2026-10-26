@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{fragments/layout :: page('Subscriptions', ~{::main})}">
+<body>
+<main class="container">
+    <h1>Subscriptions</h1>
+    <p role="alert" th:if="${error}" th:text="${error}">Something is wrong.</p>
+
+    <section id="candidates" th:unless="${candidates.empty}">
+        <h2>To review</h2>
+        <article th:each="s : ${candidates}" class="budget">
+            <header>
+                <strong th:text="${s.name}">Netflix</strong>
+                <span th:text="${s.cadence.name() == 'MONTHLY'} ? 'Monthly' : 'Yearly'">Monthly</span>
+            </header>
+            <p>About <span th:text="${s.expected}">15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
+            <div sec:authorize="hasRole('ADMIN')">
+                <form method="post" th:action="@{/subscriptions/{id}/confirm(id=${s.id})}">
+                    <button type="submit">Confirm</button>
+                </form>
+                <form method="post" th:action="@{/subscriptions/{id}/ignore(id=${s.id})}">
+                    <button type="submit" class="outline secondary">Ignore</button>
+                </form>
+            </div>
+        </article>
+    </section>
+
+    <section id="confirmed">
+        <h2>Confirmed</h2>
+        <p th:if="${confirmed.empty}">No confirmed subscriptions yet.</p>
+        <article th:each="s : ${confirmed}" class="budget">
+            <header>
+                <strong th:text="${s.name}">Netflix</strong>
+                <span th:text="${s.cadence.name() == 'MONTHLY'} ? 'Monthly' : 'Yearly'">Monthly</span>
+            </header>
+            <p><span th:text="${s.expected}">15.49</span>, next due <span th:text="${s.nextDueOn}">2026-04-04</span></p>
+            <div sec:authorize="hasRole('ADMIN')">
+                <form method="post" th:action="@{/subscriptions/{id}(id=${s.id})}">
+                    <label>Name <input name="name" required th:value="${s.name}"></label>
+                    <div class="grid">
+                        <label>Cadence
+                            <select name="cadence">
+                                <option value="MONTHLY" th:selected="${s.cadence.name() == 'MONTHLY'}">Monthly</option>
+                                <option value="YEARLY" th:selected="${s.cadence.name() == 'YEARLY'}">Yearly</option>
+                            </select>
+                        </label>
+                        <label>Amount
+                            <input name="amount" inputmode="decimal" required th:value="${s.expected}">
+                        </label>
+                    </div>
+                    <label>Next due <input name="nextDue" type="date" required th:value="${s.nextDueOn}"></label>
+                    <button type="submit">Save</button>
+                </form>
+                <form method="post" th:action="@{/subscriptions/{id}/delete(id=${s.id})}">
+                    <button type="submit" class="outline secondary">Delete</button>
+                </form>
+            </div>
+        </article>
+        <p id="annual-total" th:unless="${confirmed.empty}">
+            About <strong th:text="${annualTotal}">324.88</strong> a year
+        </p>
+    </section>
+
+    <details id="ignored" th:unless="${ignored.empty}">
+        <summary>Ignored</summary>
+        <article th:each="s : ${ignored}" class="budget">
+            <header><strong th:text="${s.name}">Rent</strong></header>
+            <form method="post" th:action="@{/subscriptions/{id}/delete(id=${s.id})}" sec:authorize="hasRole('ADMIN')">
+                <button type="submit" class="outline secondary">Remove</button>
+            </form>
+        </article>
+    </details>
+
+    <form method="post" th:action="@{/subscriptions}" sec:authorize="hasRole('ADMIN')">
+        <h2>Add subscription</h2>
+        <label>Name <input name="name" autocomplete="off" required></label>
+        <label>Merchant on your expenses (if different)
+            <input name="merchant" autocomplete="off">
+        </label>
+        <label>Cadence
+            <select name="cadence">
+                <option value="MONTHLY">Monthly</option>
+                <option value="YEARLY">Yearly</option>
+            </select>
+        </label>
+        <label>Amount <input name="amount" inputmode="decimal" required></label>
+        <label>Next due <input name="nextDue" type="date" required th:value="${today}"></label>
+        <button type="submit">Add subscription</button>
+    </form>
+</main>
+</body>
+</html>

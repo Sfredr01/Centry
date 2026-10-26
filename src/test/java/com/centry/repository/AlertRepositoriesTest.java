@@ -1,7 +1,6 @@
 package com.centry.repository;
 
 import com.centry.entity.BudgetAlertEntity;
-import com.centry.entity.SubscriptionAlertEntity;
 import com.centry.model.BudgetLevel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,13 +22,9 @@ class AlertRepositoriesTest {
     @Autowired
     private BudgetAlertRepository budgetRepository;
 
-    @Autowired
-    private SubscriptionAlertRepository subscriptionRepository;
-
     @BeforeEach
     void clean() {
         budgetRepository.deleteAll();
-        subscriptionRepository.deleteAll();
     }
 
     @Test
@@ -71,43 +66,7 @@ class AlertRepositoriesTest {
         assertThat(sparse.status()).isNull();
     }
 
-    @Test
-    void subscriptionAlertsOrderedNewestFirst() {
-        subscriptionRepository.save(subscription("a", BASE.plusHours(1)));
-        subscriptionRepository.save(subscription("c", BASE.plusHours(3)));
-        subscriptionRepository.save(subscription("b", BASE.plusHours(2)));
-
-        assertThat(subscriptionRepository.findTop50ByOrderByTimestampDesc())
-                .extracting(SubscriptionAlertEntity::merchant)
-                .containsExactly("c", "b", "a");
-    }
-
-    @Test
-    void subscriptionAlertsCappedAt50KeepingNewest() {
-        for (int i = 0; i < 55; i++) {
-            subscriptionRepository.save(subscription("m" + i, BASE.plusMinutes(i)));
-        }
-
-        var result = subscriptionRepository.findTop50ByOrderByTimestampDesc();
-        assertThat(result).hasSize(50);
-        assertThat(result.get(0).merchant()).isEqualTo("m54");
-        assertThat(result.get(49).merchant()).isEqualTo("m5");
-    }
-
-    @Test
-    void subscriptionAlertRoundTripsAllFields() {
-        SubscriptionAlertEntity saved = subscriptionRepository.save(new SubscriptionAlertEntity(null, "Netflix",
-                new BigDecimal("15.49"), new BigDecimal("17.99"), "PRICE_INCREASE", "up", BASE));
-
-        assertThat(saved.id()).isNotNull();
-        assertThat(subscriptionRepository.findTop50ByOrderByTimestampDesc()).containsExactly(saved);
-    }
-
     private BudgetAlertEntity budget(String category, LocalDateTime ts) {
         return new BudgetAlertEntity(null, category, null, null, null, null, null, ts);
-    }
-
-    private SubscriptionAlertEntity subscription(String merchant, LocalDateTime ts) {
-        return new SubscriptionAlertEntity(null, merchant, null, null, null, null, ts);
     }
 }

@@ -2,12 +2,9 @@ package com.centry.service;
 
 import com.centry.dto.ExpenseEvent;
 import com.centry.entity.ExpenseEntity;
-import com.centry.entity.SubscriptionAlertEntity;
 import com.centry.model.BudgetAlertEvent;
 import com.centry.model.BudgetLevel;
-import com.centry.model.SubscriptionAlertEvent;
 import com.centry.repository.ExpenseRepository;
-import com.centry.repository.SubscriptionAlertRepository;
 import com.centry.repository.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,10 +45,8 @@ class ExpenseServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2025-11-15T10:00:00Z"), ZoneOffset.UTC);
 
     @Mock private BudgetAlertPolicy budgetAlertPolicy;
-    @Mock private SubscriptionTrackingService subscriptionTrackingService;
     @Mock private ApplicationEventPublisher events;
     @Mock private ExpenseRepository expenseRepository;
-    @Mock private SubscriptionAlertRepository subscriptionAlertRepository;
     @Mock private UserRepository users;
 
     private SimpleMeterRegistry registry;
@@ -60,8 +55,7 @@ class ExpenseServiceTest {
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        service = new ExpenseService(budgetAlertPolicy, subscriptionTrackingService, events,
-                expenseRepository, subscriptionAlertRepository, users, registry, CLOCK);
+        service = new ExpenseService(budgetAlertPolicy, events, expenseRepository, users, registry, CLOCK);
     }
 
     private ExpenseEvent event(LocalDateTime ts) {
@@ -95,11 +89,9 @@ class ExpenseServiceTest {
         assertThat(e.amount()).isEqualByComparingTo("15.99");
         assertThat(e.category()).isEqualTo("Entertainment");
         assertThat(e.timestamp()).isEqualTo(TX_TIME);
-        verify(subscriptionTrackingService).checkPriceIncrease(any());
-        verifyNoInteractions(subscriptionAlertRepository, events);
+        verifyNoInteractions(events);
         assertThat(count("centry.expenses.consumed")).isEqualTo(1.0);
         assertThat(count("centry.budget.alerts.emitted")).isZero();
-        assertThat(count("centry.subscription.alerts.emitted")).isZero();
         assertThat(registry.timer("centry.expense.processing.duration").count()).isEqualTo(1L);
     }
 
@@ -138,8 +130,7 @@ class ExpenseServiceTest {
 
     private void assertNoSideEffects() {
         verify(expenseRepository, never()).save(any());
-        verifyNoInteractions(budgetAlertPolicy, subscriptionTrackingService,
-                subscriptionAlertRepository, events);
+        verifyNoInteractions(budgetAlertPolicy, events);
         assertThat(count("centry.expenses.consumed")).isZero();
     }
 
@@ -201,8 +192,7 @@ class ExpenseServiceTest {
 
         assertThat(result.expense()).isSameAs(stored);
         assertThat(result.created()).isFalse();
-        verifyNoInteractions(budgetAlertPolicy, subscriptionTrackingService,
-                subscriptionAlertRepository, events);
+        verifyNoInteractions(budgetAlertPolicy, events);
     }
 
     @Test
@@ -260,32 +250,6 @@ class ExpenseServiceTest {
 
         verify(events).publishEvent((Object) alert);
         assertThat(count("centry.budget.alerts.emitted")).isEqualTo(1.0);
-    }
-
-    private SubscriptionAlertEvent subAlert(LocalDateTime ts) {
-        return SubscriptionAlertEvent.builder()
-                .merchant("Netflix").previousAmount(new BigDecimal("9.99")).currentAmount(new BigDecimal("15.99"))
-                .anomalyType("PRICE_INCREASE").message("Price went up").timestamp(ts).build();
-    }
-
-    @Test
-    void subscriptionAlertWithTimestampIsPersistedAndPublished() {
-        SubscriptionAlertEvent alert = subAlert(TX_TIME);
-        when(subscriptionTrackingService.checkPriceIncrease(any())).thenReturn(Optional.of(alert));
-
-        service.record(event(TX_TIME), null);
-
-        ArgumentCaptor<SubscriptionAlertEntity> saved = ArgumentCaptor.forClass(SubscriptionAlertEntity.class);
-        verify(subscriptionAlertRepository).save(saved.capture());
-        SubscriptionAlertEntity s = saved.getValue();
-        assertThat(s.merchant()).isEqualTo("Netflix");
-        assertThat(s.previousAmount()).isEqualByComparingTo("9.99");
-        assertThat(s.currentAmount()).isEqualByComparingTo("15.99");
-        assertThat(s.anomalyType()).isEqualTo("PRICE_INCREASE");
-        assertThat(s.message()).isEqualTo("Price went up");
-        assertThat(s.timestamp()).isEqualTo(TX_TIME);
-        verify(events).publishEvent((Object) alert);
-        assertThat(count("centry.subscription.alerts.emitted")).isEqualTo(1.0);
     }
 
     @Test
