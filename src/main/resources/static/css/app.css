@@ -192,13 +192,12 @@ body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-in
 
 /* ---- Budget bars ---- */
 #budget-bars { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
-.budget-bar { margin: 0; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-.budget-bar label { margin: 0; }
-.budget-bar .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
-.budget-bar .figure { color: var(--ink-muted); font-size: 14px; }
-.budget-bar .figure b { color: var(--ink); font-size: 16px; }
-.budget-bar progress { height: 12px; margin: var(--space-2) 0; border-radius: var(--radius-pill); }
-.budget-bar .foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); }
+.budget-figures { margin: 0; }
+.budget-figures .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.budget-figures .figure { color: var(--ink-muted); font-size: 14px; }
+.budget-figures .figure b { color: var(--ink); font-size: 16px; }
+.budget-figures progress { height: 12px; margin: var(--space-2) 0; border-radius: var(--radius-pill); }
+.budget-foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-muted); }
 /* Pico draws progress with --pico-progress-color, so recolor by budget level. */
 progress[data-level="WARNING_EXCEEDED"] { --pico-progress-color: var(--ochre-fill); }
 progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
@@ -222,8 +221,8 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .expense .merchant { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .expense .meta { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: 14px;
     line-height: 20px; color: var(--ink-muted); }
-.expense .meta a { font-weight: 600; }
 .expense .amount { font-weight: 600; text-align: right; }
+.icon-slot { flex: none; width: var(--tap-target); }
 .tag { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--bark-soft);
     color: var(--bark); font-size: 13px; line-height: 22px; font-weight: 600; }
 
@@ -233,21 +232,30 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .empty h3 { margin: 0; font-size: 19px; }
 .empty p { margin: 0; max-width: 32ch; }
 
-/* ---- Budgets page cards: category and status on one line; two short inputs side by side ---- */
-.budget header { display: flex; justify-content: space-between; gap: .5rem; }
-.budget .grid { grid-template-columns: 1fr 1fr; }
-.budget form { margin-bottom: .5rem; }
-[data-level="WARNING_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--ochre); }
-[data-level="LIMIT_EXCEEDED"]:not(progress):not(.pill):not(.budget-bar) { color: var(--rust); }
+/* ---- Cards: head (title, meta, trailing actions), body, optional foot. Actions are icon buttons, top right. ---- */
+.card { position: relative; margin: 0; padding: var(--space-4); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-card); }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.card-actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; gap: var(--space-1); }
+.card--has-actions .card-head, .card--has-actions .budget-figures .head {
+    padding-right: calc(var(--tap-target) + var(--space-2)); }
 
-/* ---- Icons: fragments/icons.html, drawn in the text colour ---- */
-.icon { width: 24px; height: 24px; flex: none; vertical-align: middle; fill: none; stroke: currentColor;
-    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* A control that is only an icon: 44px target, named by aria-label and title. */
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; flex: none;
-    width: var(--tap-target); height: var(--tap-target); margin: 0; padding: 0; border: 0;
-    border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); }
-.icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
-.icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-/* An icon next to a word inside a normal button or link. */
-button .icon, [role="button"] .icon { width: 20px; height: 20px; margin-inline-end: var(--space-2); vertical-align: -4px; }
+/* ---- Budgets page: the pencil sits top right, the editor opens below it inside the card ---- */
+#budgets { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
+.budget p { margin: 0; font-size: 14px; }
+details.budget-edit { margin: 0; border: 0; }
+details.budget-edit > summary.icon-btn { position: absolute; top: var(--space-2); right: var(--space-2); }
+details.budget-edit > summary::after { display: none; }
+details.budget-edit[open] > summary.icon-btn { background: var(--surface-sunken); color: var(--ink); }
+.budget-edit-panel { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.budget .grid { grid-template-columns: 1fr 1fr; }
+.budget-edit-panel form { margin-bottom: var(--space-2); }
+
+/* ---- Notice: a sentence with an icon; the words carry the meaning, the tint backs them up ---- */
+.notice { display: flex; gap: var(--space-2); align-items: flex-start; margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
+.notice p { margin: 0; color: var(--ink); }
+.notice .icon { width: 20px; height: 20px; margin-top: 2px; }
+.notice--success { background: var(--fern-soft); color: var(--forest); }
+.notice--warning { background: var(--ochre-soft); color: var(--ochre); }
+.notice--error { background: var(--rust-soft); color: var(--rust); }

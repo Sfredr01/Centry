@@ -252,7 +252,7 @@ class DashboardPageTest {
     }
 
     @Test
-    void editLinkOnlyWhereTheViewerMayEdit() throws Exception {
+    void editIconOnlyWhereTheViewerMayEdit() throws Exception {
         ExpenseEntity mine = expenses.save(new ExpenseEntity(null, "mine", "Market", new BigDecimal("1.00"), "Food",
                 MARCH_2, mom, mom));
         ExpenseEntity kids = expenses.save(new ExpenseEntity(null, "kids", "Candy", new BigDecimal("2.00"), "Food",
@@ -260,22 +260,40 @@ class DashboardPageTest {
         ExpenseEntity legacy = expenses.save(new ExpenseEntity(null, "old", "Old", new BigDecimal("3.00"), "Food",
                 MARCH_2.plusHours(2), null, null));
 
-        // Mom: only the one she created. The link sits on the row's meta line.
+        // Mom: only the one she created, as a pencil at the row's end and not a word on the meta line.
         Document asMom = dashboard("/");
-        assertThat(asMom.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+        assertThat(asMom.select("#recent-expenses a.icon-btn[href$=/edit]").eachAttr("href"))
                 .containsExactly("/expenses/" + mine.id() + "/edit");
+        Element pencil = asMom.selectFirst("#recent-expenses a.icon-btn[href$=/edit]");
+        assertThat(pencil.attr("aria-label")).isEqualTo("Edit Market").isEqualTo(pencil.attr("title"));
+        assertThat(pencil.text()).isEmpty();
+        assertThat(pencil.select("svg.icon[aria-hidden=true]")).hasSize(1);
+        assertThat(asMom.select("#recent-expenses .meta a")).isEmpty();
+        // Rows she cannot edit keep an empty slot, so the amounts stay in line.
+        assertThat(asMom.select("#recent-expenses li.expense")).hasSize(3);
+        assertThat(asMom.select("#recent-expenses li.expense .icon-slot")).hasSize(2);
 
         // Admin: every row, including the one with no creator.
         Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk()));
-        assertThat(asAdmin.select("#recent-expenses a[href$=/edit]").eachAttr("href"))
+        assertThat(asAdmin.select("#recent-expenses a.icon-btn[href$=/edit]").eachAttr("href"))
                 .containsExactlyInAnyOrder("/expenses/" + mine.id() + "/edit", "/expenses/" + kids.id() + "/edit",
                         "/expenses/" + legacy.id() + "/edit");
     }
 
     @Test
+    void editLabelFallsBackWhenMerchantIsMissing() throws Exception {
+        expenses.save(new ExpenseEntity(null, "nameless", null, new BigDecimal("4.00"), "Food", MARCH_2, null, null));
+
+        Document asAdmin = Html.of(mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()));
+
+        assertThat(asAdmin.selectFirst("#recent-expenses a.icon-btn").attr("aria-label")).isEqualTo("Edit expense");
+    }
+
+    @Test
     void afterAnEditOrDeleteTheDashboardSaysSo() throws Exception {
-        assertThat(dashboard("/?edited").select("[role=status]").text()).contains("updated");
+        assertThat(dashboard("/?edited").select(".notice.notice--success[role=status]").text()).contains("updated");
         assertThat(dashboard("/?deleted").select("[role=status]").text()).contains("deleted");
         assertThat(dashboard("/").select("[role=status]")).isEmpty();
     }

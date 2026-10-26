@@ -10,7 +10,7 @@
     <!--/* A separate form: Delete must not submit the edited values, and works without JavaScript. */-->
     <form method="post" th:action="@{/expenses/{id}/delete(id=${expenseId})}">
         <button type="submit" class="outline secondary"
-                onclick="return confirm('Delete this expense?')">Delete</button>
+                onclick="return confirm('Delete this expense?')"><svg th:replace="~{fragments/icons :: delete}"></svg>Delete</button>
     </form>
     <p><a th:href="@{/}">Cancel</a></p>
 </main>

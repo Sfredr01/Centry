@@ -53,7 +53,7 @@ class LoginPageTest {
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/login?error"));
 
-        assertThat(loginPage("?error").select("[role=alert]")).hasSize(1);
+        assertThat(loginPage("?error").select(".notice--error[role=alert]")).hasSize(1);
     }
 
     @Test

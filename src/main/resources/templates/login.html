@@ -3,8 +3,12 @@
 <body>
 <main class="container">
     <h1>Centry</h1>
-    <p role="alert" th:if="${param.error}">Wrong username or password.</p>
-    <p role="status" th:if="${param.logout}">You have been signed out.</p>
+    <th:block th:if="${param.error}">
+        <div th:replace="~{fragments/components :: notice('error', 'Wrong username or password.')}"></div>
+    </th:block>
+    <th:block th:if="${param.logout}">
+        <div th:replace="~{fragments/components :: notice('success', 'You have been signed out.')}"></div>
+    </th:block>
     <form method="post" th:action="@{/login}">
         <label>Username
             <input name="username" autocomplete="username" autocapitalize="none" required autofocus>

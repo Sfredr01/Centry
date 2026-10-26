@@ -4,43 +4,48 @@
 <body>
 <main class="container">
     <h1>Budgets</h1>
-    <p role="alert" th:if="${error}" th:text="${error}">Something is wrong.</p>
+    <th:block th:if="${error}">
+        <div th:replace="~{fragments/components :: notice('error', ${error})}"></div>
+    </th:block>
 
-    <p th:if="${budgets.empty}">No budgets yet.</p>
-    <!-- One card per budget: a table with inline inputs does not fit a phone screen. -->
+    <th:block th:if="${budgets.empty}">
+        <section th:replace="~{fragments/components :: emptyState('budgets-empty', 'No budgets yet',
+                'A budget caps what a category may spend each month.',
+                ${#authorization.expression('hasRole(''ADMIN'')')} ? '#add-budget' : null, 'Add a budget')}"></section>
+    </th:block>
+    <!--/* One card per budget: a table with inline inputs does not fit a phone screen. The face is read-only; an
+         admin edits or deletes behind the pencil. */-->
     <section id="budgets" th:unless="${budgets.empty}">
-        <article th:each="b : ${budgets}" class="budget">
-            <header>
-                <strong th:text="${b.category}">food</strong>
-                <span th:switch="${b.level.name()}">
-                    <span th:case="'OK'">OK</span>
-                    <span th:case="'WARNING_EXCEEDED'" data-level="WARNING_EXCEEDED">Warning</span>
-                    <span th:case="*" data-level="LIMIT_EXCEEDED">Over limit</span>
-                </span>
-            </header>
-            <p>Spent <span th:text="${@money.format(b.spent)}">$85.00</span>
-                <span sec:authorize="!hasRole('ADMIN')">of <span th:text="${@money.format(b.monthlyLimit)}">$100.00</span>,
-                    warning at <span th:text="${b.warnPercent}">80</span>%</span></p>
-            <div sec:authorize="hasRole('ADMIN')">
-                <form method="post" th:action="@{/budgets/{c}(c=${b.category})}">
-                    <div class="grid">
-                        <label>Monthly limit
-                            <input name="monthlyLimit" inputmode="decimal" required th:value="${b.monthlyLimit}">
-                        </label>
-                        <label>Warn at %
-                            <input name="warnPercent" inputmode="numeric" th:value="${b.warnPercent}">
-                        </label>
-                    </div>
-                    <button type="submit">Save</button>
-                </form>
-                <form method="post" th:action="@{/budgets/{c}/delete(c=${b.category})}">
-                    <button type="submit" class="outline secondary">Delete</button>
-                </form>
-            </div>
+        <article th:each="b : ${budgets}" th:id="|budget-${b.category}|" class="budget card"
+                 th:classappend="${#authorization.expression('hasRole(''ADMIN'')')} ? 'card--has-actions'">
+            <th:block th:replace="~{fragments/components :: budgetBar(${b})}"></th:block>
+            <p class="muted">Warns at <span th:text="${b.warnPercent}">80</span>%</p>
+            <details class="budget-edit" sec:authorize="hasRole('ADMIN')" th:open="${failed == b.category}">
+                <summary class="icon-btn" th:aria-label="|Edit ${b.category} budget|" th:title="|Edit ${b.category} budget|">
+                    <svg th:replace="~{fragments/icons :: edit}"></svg>
+                </summary>
+                <div class="budget-edit-panel">
+                    <form method="post" th:action="@{/budgets/{c}(c=${b.category})}">
+                        <div class="grid">
+                            <label>Monthly limit
+                                <input name="monthlyLimit" inputmode="decimal" required th:value="${b.monthlyLimit}">
+                            </label>
+                            <label>Warn at %
+                                <input name="warnPercent" inputmode="numeric" th:value="${b.warnPercent}">
+                            </label>
+                        </div>
+                        <button type="submit">Save</button>
+                    </form>
+                    <form method="post" th:action="@{/budgets/{c}/delete(c=${b.category})}">
+                        <button type="submit" class="outline secondary" onclick="return confirm(this.dataset.confirm)"
+                                th:data-confirm="|Delete the ${b.category} budget?|"><svg th:replace="~{fragments/icons :: delete}"></svg>Delete budget</button>
+                    </form>
+                </div>
+            </details>
         </article>
     </section>
 
-    <form method="post" th:action="@{/budgets}" sec:authorize="hasRole('ADMIN')">
+    <form id="add-budget" method="post" th:action="@{/budgets}" sec:authorize="hasRole('ADMIN')">
         <h2>Add budget</h2>
         <label>Category <input name="category" autocomplete="off" required></label>
         <label>Monthly limit <input name="monthlyLimit" inputmode="decimal" required></label>

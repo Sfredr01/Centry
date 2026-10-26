@@ -5,5 +5,70 @@
 <body>
 <!--/* A person's initials in a circle. One fixed colour pair: colour is for budget health, not decoration. */-->
 <span th:fragment="avatar(initials)" class="avatar" aria-hidden="true" th:text="${initials}">M</span>
+
+<!--/* A control that is only an icon. The label names the action and its object, and doubles as the tooltip. */-->
+<a th:fragment="iconLink(href, icon, label)" class="icon-btn" th:href="${href}" th:aria-label="${label}"
+   th:title="${label}"><svg th:replace="~{fragments/icons :: __${icon}__}"></svg></a>
+
+<!--/* Budget health in words, so colour never carries it alone. level is a BudgetLevel. */-->
+<span th:fragment="pill(level)" class="pill" th:attr="data-level=${level}" th:switch="${level.name()}">
+    <th:block th:case="'OK'">On track</th:block>
+    <th:block th:case="'WARNING_EXCEEDED'">Near limit</th:block>
+    <th:block th:case="*">Over limit</th:block>
+</span>
+
+<!--/* The inside of a budget card: figures, bar, state and what is left. The caller owns the card. */-->
+<th:block th:fragment="budgetBar(b)">
+    <label class="budget-figures">
+        <span class="head">
+            <strong th:text="${b.category}">food</strong>
+            <span class="figure"><b th:text="${@money.format(b.spent)}">$85.00</b> of <span th:text="${@money.format(b.monthlyLimit)}">$100.00</span></span>
+        </span>
+        <progress th:value="${b.spent}" th:max="${b.monthlyLimit}" th:attr="data-level=${b.level}"></progress>
+    </label>
+    <!--/* State in words and what is left: the bar's colour never carries it alone. */-->
+    <span class="budget-foot" th:with="over=${b.spent.compareTo(b.monthlyLimit) > 0}">
+        <span th:replace="~{fragments/components :: pill(${b.level})}"></span>
+        <span class="remaining" th:text="${over} ? |${@money.format(b.spent.subtract(b.monthlyLimit))} over|
+                : |${@money.format(b.monthlyLimit.subtract(b.spent))} left|">$15.00 left</span>
+    </span>
+</th:block>
+
+<!--/* A dashboard row. r is a RecentExpense. The pencil only shows where the viewer may edit; elsewhere an empty
+     slot keeps the amounts in line. */-->
+<li th:fragment="expenseRow(r)" class="expense">
+    <div class="main">
+        <div class="merchant" th:text="${r.expense.merchant}">Market</div>
+        <div class="meta">
+            <span class="tag" th:text="${r.expense.category}">food</span>
+            <time th:datetime="${#temporals.format(r.expense.timestamp, 'yyyy-MM-dd')}"
+                  th:text="${#temporals.format(r.expense.timestamp, 'MMM d')}">Mar 15</time>
+            <span class="spender" th:if="${r.spender}" th:text="${r.spender}">Mom</span>
+        </div>
+    </div>
+    <div class="amount" th:text="${@money.format(r.expense.amount)}">$12.00</div>
+    <th:block th:if="${r.editable}">
+        <a th:replace="~{fragments/components :: iconLink(@{/expenses/{id}/edit(id=${r.expense.id})}, 'edit', |Edit ${r.expense.merchant ?: 'expense'}|)}"></a>
+    </th:block>
+    <span th:unless="${r.editable}" class="icon-slot" aria-hidden="true"></span>
+</li>
+
+<!--/* Nothing here yet. ctaHref null leaves out the button (a viewer who cannot act on it). */-->
+<section th:fragment="emptyState(id, title, text, ctaHref, ctaLabel)" th:id="${id}" class="empty">
+    <h3 th:text="${title}">No expenses yet</h3>
+    <p class="muted" th:text="${text}">Add what you spend.</p>
+    <th:block th:if="${ctaHref}">
+        <a role="button" th:href="${ctaHref}"><svg th:replace="~{fragments/icons :: add}"></svg><span th:text="${ctaLabel}">Add</span></a>
+    </th:block>
+</section>
+
+<!--/* A message in words with an icon. kind is success, warning or error; errors are announced as alerts. */-->
+<div th:fragment="notice(kind, text)" class="notice" th:classappend="|notice--${kind}|"
+     th:attr="role=${kind == 'error'} ? 'alert' : 'status'" th:switch="${kind}">
+    <th:block th:case="'error'"><svg th:replace="~{fragments/icons :: error}"></svg></th:block>
+    <th:block th:case="'warning'"><svg th:replace="~{fragments/icons :: warning}"></svg></th:block>
+    <th:block th:case="*"><svg th:replace="~{fragments/icons :: check}"></svg></th:block>
+    <p th:text="${text}">Saved.</p>
+</div>
 </body>
 </html>

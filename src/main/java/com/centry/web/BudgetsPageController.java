@@ -56,7 +56,13 @@ class BudgetsPageController {
     @PostMapping("/budgets/{category}")
     String edit(@PathVariable String category, @RequestParam String monthlyLimit,
             @RequestParam(defaultValue = "") String warnPercent, Model model, HttpServletResponse response) {
-        return upsert(Keys.of(category), monthlyLimit, warnPercent, model, response);
+        String key = Keys.of(category);
+        String view = upsert(key, monthlyLimit, warnPercent, model, response);
+        if (!REDIRECT.equals(view)) {
+            // Names the card to show open again, so the error appears next to the form that caused it.
+            model.addAttribute("failed", key);
+        }
+        return view;
     }
 
     @PostMapping("/budgets/{category}/delete")

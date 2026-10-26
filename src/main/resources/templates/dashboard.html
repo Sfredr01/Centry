@@ -4,7 +4,9 @@
 <main class="container">
     <h1 th:text="${#temporals.format(month, 'MMMM yyyy')}">March 2026</h1>
 
-    <p role="status" th:if="${message}" th:text="${message}">Expense updated.</p>
+    <th:block th:if="${message}">
+        <div th:replace="~{fragments/components :: notice('success', ${message})}"></div>
+    </th:block>
 
     <nav id="member-filter" aria-label="Show spending of">
         <ul class="chips">
@@ -24,50 +26,22 @@
     </section>
 
     <section th:if="${!budgets.empty}" id="budget-bars">
-        <article th:each="b : ${budgets}" class="budget-bar" th:attr="data-level=${b.level}">
-            <label>
-                <span class="head">
-                    <strong th:text="${b.category}">food</strong>
-                    <span class="figure"><b th:text="${@money.format(b.spent)}">$85.00</b> of <span th:text="${@money.format(b.monthlyLimit)}">$100.00</span></span>
-                </span>
-                <progress th:value="${b.spent}" th:max="${b.monthlyLimit}" th:attr="data-level=${b.level}"></progress>
-            </label>
-            <!--/* State in words and what is left: the bar's colour never carries it alone. */-->
-            <span class="foot" th:with="over=${b.spent.compareTo(b.monthlyLimit) > 0}">
-                <span class="pill" th:attr="data-level=${b.level}" th:switch="${b.level.name()}">
-                    <th:block th:case="'OK'">On track</th:block>
-                    <th:block th:case="'WARNING_EXCEEDED'">Near limit</th:block>
-                    <th:block th:case="*">Over limit</th:block>
-                </span>
-                <span class="remaining" th:text="${over} ? |${@money.format(b.spent.subtract(b.monthlyLimit))} over|
-                        : |${@money.format(b.monthlyLimit.subtract(b.spent))} left|">$15.00 left</span>
-            </span>
+        <article th:each="b : ${budgets}" class="budget-bar card" th:attr="data-level=${b.level}">
+            <th:block th:replace="~{fragments/components :: budgetBar(${b})}"></th:block>
         </article>
     </section>
 
-    <section th:if="${recent.empty}" id="empty-state" class="empty">
-        <h3>No expenses yet</h3>
-        <p class="muted">Add what you spend as it happens and Centry keeps the month's tally.</p>
-        <a role="button" th:href="@{/add}">Add your first expense</a>
-    </section>
+    <th:block th:if="${recent.empty}">
+        <section th:replace="~{fragments/components :: emptyState('empty-state', 'No expenses yet', 'Add what you spend as it happens and Centry keeps the tally for the month.', @{/add}, 'Add your first expense')}"></section>
+    </th:block>
 
     <section th:unless="${recent.empty}">
         <h2>Recent expenses</h2>
         <!--/* Rows, not a table: merchant and amount get the phone's full width. */-->
         <ul id="recent-expenses" class="expense-list">
-            <li th:each="r : ${recent}" class="expense">
-                <div class="main">
-                    <div class="merchant" th:text="${r.expense.merchant}">Market</div>
-                    <div class="meta">
-                        <span class="tag" th:text="${r.expense.category}">food</span>
-                        <time th:datetime="${#temporals.format(r.expense.timestamp, 'yyyy-MM-dd')}"
-                              th:text="${#temporals.format(r.expense.timestamp, 'MMM d')}">Mar 15</time>
-                        <span class="spender" th:if="${r.spender}" th:text="${r.spender}">Mom</span>
-                        <a th:if="${r.editable}" th:href="@{/expenses/{id}/edit(id=${r.expense.id})}">Edit</a>
-                    </div>
-                </div>
-                <div class="amount" th:text="${@money.format(r.expense.amount)}">$12.00</div>
-            </li>
+            <th:block th:each="r : ${recent}">
+                <li th:replace="~{fragments/components :: expenseRow(${r})}"></li>
+            </th:block>
         </ul>
     </section>
 </main>
