@@ -154,10 +154,11 @@ class DashboardPageTest {
         var bars = dashboard().select("#budget-bars .budget-bar");
 
         assertThat(bars.eachText()).hasSize(3);
-        assertThat(bars.get(0).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
-        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("$15.00 left");
-        assertThat(bars.get(1).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
-        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("$12.75 over");
+        // Worst first: over limit, near limit, on track.
+        assertThat(bars.get(0).select(".pill[data-level=LIMIT_EXCEEDED]").text()).isEqualTo("Over limit");
+        assertThat(bars.get(0).select(".remaining").text()).isEqualTo("$12.75 over");
+        assertThat(bars.get(1).select(".pill[data-level=WARNING_EXCEEDED]").text()).isEqualTo("Near limit");
+        assertThat(bars.get(1).select(".remaining").text()).isEqualTo("$15.00 left");
         assertThat(bars.get(2).select(".pill[data-level=OK]").text()).isEqualTo("On track");
         assertThat(bars.get(2).select(".remaining").text()).isEqualTo("$190.00 left");
     }
@@ -173,6 +174,21 @@ class DashboardPageTest {
         assertThat(page.selectFirst("progress").attr("value")).isEqualTo("1000.50");
         assertThat(page.selectFirst("progress").attr("max")).isEqualTo("1234.00");
         assertThat(page.selectFirst("#recent-expenses .amount").text()).isEqualTo("$1,000.50");
+    }
+
+    @Test
+    void budgetBarsWorstFirst() throws Exception {
+        budgets.upsert("food", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("50.00"), 80);
+        budgets.upsert("home", new BigDecimal("200.00"), 80);
+        budgets.upsert("bills", new BigDecimal("100.00"), 80);
+        spend("Market", "food", "85.00", MARCH_2);
+        spend("Cinema", "fun", "62.75", MARCH_2);
+        spend("Hardware", "home", "10.00", MARCH_2);
+        spend("Power", "bills", "50.00", MARCH_2);
+
+        assertThat(dashboard().select("#budget-bars .budget-bar strong").eachText())
+                .containsExactly("fun", "food", "bills", "home");
     }
 
     @Test

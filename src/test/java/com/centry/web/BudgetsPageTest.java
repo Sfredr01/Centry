@@ -115,6 +115,19 @@ class BudgetsPageTest {
     }
 
     @Test
+    void cardsWorstFirst() throws Exception {
+        budgets.upsert("bills", new BigDecimal("100.00"), 80);
+        budgets.upsert("fun", new BigDecimal("10.00"), 80);
+        expenses.save(new ExpenseEntity(null, UUID.randomUUID().toString(), "Cinema", new BigDecimal("20.00"),
+                "fun", LocalDateTime.of(2026, 3, 3, 20, 0), null, null));
+
+        Document page = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
+
+        assertThat(page.select("#budgets article > header strong").eachText())
+                .containsExactly("fun", "food", "bills");
+    }
+
+    @Test
     void adminCanDelete() throws Exception {
         mockMvc.perform(form("/budgets/food/delete", admin()))
                 .andExpect(status().isFound()).andExpect(redirectedUrl("/budgets"));

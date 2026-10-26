@@ -1,6 +1,7 @@
 package com.centry.model;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 
 /** A budget and what has been spent against it in one month. Money has two decimals. */
 public record BudgetStatus(
@@ -10,6 +11,17 @@ public record BudgetStatus(
         BigDecimal warningAmount,
         BigDecimal spent,
         BudgetLevel level) {
+
+    /**
+     * Most urgent first: over limit, then near limit, then on track; within a level the highest spent/limit
+     * ratio first (compared by cross-multiplying, so no division or rounding); ties by category key.
+     * Relies on BudgetLevel's declaration order, mildest first.
+     */
+    public static final Comparator<BudgetStatus> WORST_FIRST =
+            Comparator.comparing(BudgetStatus::level, Comparator.reverseOrder())
+                    .thenComparing((a, b) -> b.spent().multiply(a.monthlyLimit())
+                            .compareTo(a.spent().multiply(b.monthlyLimit())))
+                    .thenComparing(BudgetStatus::category);
 
     /**
      * Integer-cent math throughout. The warning amount is {@code limit * warnPercent / 100} rounded up to a

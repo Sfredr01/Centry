@@ -2,6 +2,7 @@ package com.centry.web;
 
 import com.centry.controller.BudgetController;
 import com.centry.dto.BudgetRequest;
+import com.centry.model.BudgetStatus;
 import com.centry.model.Keys;
 import com.centry.repository.BudgetRepository;
 import com.centry.repository.BudgetStatusQuery;
@@ -92,7 +93,8 @@ class BudgetsPageController {
     }
 
     private String render(Model model) {
-        model.addAttribute("budgets", statuses.all(YearMonth.now(clock)));
+        model.addAttribute("budgets", statuses.all(YearMonth.now(clock)).stream()
+                .sorted(BudgetStatus.WORST_FIRST).toList());
         return "budgets";
     }
 }
