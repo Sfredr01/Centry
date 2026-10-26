@@ -8,8 +8,10 @@ at home, and you use it from a phone or laptop.
 - One-time WARN (at the warning percent, default 80%) and EXCEEDED (at 100%) alerts per category and month, sent
   to ntfy or a Discord/Slack-style webhook. Failed deliveries are retried for up to 24 hours.
 - Who spent what: each expense is attributed to a household member, and the dashboard filters by member.
-- Roles: an admin manages members and budgets. A member adds expenses and edits or deletes only the ones they
+- Roles: an admin manages members, budgets and subscriptions. A member adds expenses and edits or deletes only the ones they
   created. Members without a password can be picked as the spender but cannot log in.
+- Subscriptions: the Subs tab lists recurring charges (monthly or yearly) with their expected amount, next due
+  date and a yearly total. For now an admin adds and edits them by hand; everyone signed in can read the list.
 - Optional Kafka ingest, off by default.
 
 Centry is for a home LAN or a tailnet. Read [SECURITY.md](SECURITY.md) before you expose it anywhere.
