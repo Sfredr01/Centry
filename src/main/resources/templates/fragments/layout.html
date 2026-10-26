@@ -23,6 +23,7 @@
     <link rel="stylesheet" th:href="@{/vendor/pico.min.css}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
     <script th:src="@{/vendor/htmx.min.js}" defer></script>
+    <script th:src="@{/js/app.js}" defer></script>
 </head>
 <body th:attr='hx-headers=|{"${_csrf.headerName}":"${_csrf.token}"}|'>
 <header class="container appbar" sec:authorize="isAuthenticated()">

@@ -72,6 +72,15 @@ class LayoutTest {
     }
 
     @Test
+    void everyPageLoadsTheAppScriptDeferred() throws Exception {
+        for (String path : PAGES) {
+            assertThat(page(path).select("script[src=/js/app.js][defer]")).as(path).hasSize(1);
+        }
+        Document login = Html.of(mockMvc.perform(get("/login")).andExpect(status().isOk()));
+        assertThat(login.select("script[src=/js/app.js][defer]")).hasSize(1);
+    }
+
+    @Test
     void appBarShowsAvatarMenuWithNameAndLogout() throws Exception {
         Document page = page("/");
 

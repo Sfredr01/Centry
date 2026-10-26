@@ -62,6 +62,14 @@ class StaticAssetsTest {
     }
 
     @Test
+    void appScriptServedAnonymously() throws Exception {
+        mockMvc.perform(get("/js/app.js"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("aria-busy")))
+                .andExpect(content().string(containsString("DELAY_MS = 300")));
+    }
+
+    @Test
     void noExternalScriptOrStylesheetUrls() throws Exception {
         for (String path : List.of("/login", "/", "/add", "/budgets")) {
             Document page = Html.of(mockMvc.perform(get(path).with(user("admin").roles("ADMIN")))

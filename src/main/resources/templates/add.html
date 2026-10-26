@@ -3,16 +3,24 @@
 <body>
 <main class="container">
     <h1>Add expense</h1>
-    <!--/* The panel is also the htmx response: it replaces itself with a message and a fresh form. */-->
-    <div id="add-panel" th:fragment="panel">
-        <p role="status" th:if="${message}" th:text="${message}">Saved.</p>
-        <form method="post" th:action="@{/add}" th:attr="hx-post=@{/add}" hx-target="#add-panel" hx-swap="outerHTML"
-              hx-disabled-elt="find button">
-            <th:block th:replace="~{fragments/expense-fields :: fields}"></th:block>
-            <input type="hidden" name="clientRef" th:value="${form.clientRef}">
-            <button type="submit">Save</button>
-        </form>
-    </div>
+    <!--/* The panel is also the htmx response: it replaces itself with a fresh form, and the status line next
+         to it is swapped out of band. */-->
+    <th:block th:fragment="panel">
+        <!--/* Outside the swapped panel so the live region survives each swap and its new text is announced. */-->
+        <div id="add-status" aria-live="polite" hx-swap-oob="innerHTML">
+            <th:block th:if="${message}">
+                <div th:replace="~{fragments/components :: notice('success', ${message})}"></div>
+            </th:block>
+        </div>
+        <div id="add-panel">
+            <form method="post" th:action="@{/add}" th:attr="hx-post=@{/add}" hx-target="#add-panel" hx-swap="outerHTML"
+                  hx-disabled-elt="find button">
+                <th:block th:replace="~{fragments/expense-fields :: fields}"></th:block>
+                <input type="hidden" name="clientRef" th:value="${form.clientRef}">
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </th:block>
 </main>
 </body>
 </html>
