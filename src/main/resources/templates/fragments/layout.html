@@ -17,6 +17,9 @@
     <link rel="manifest" th:href="@{/manifest.webmanifest}">
     <link rel="icon" type="image/svg+xml" th:href="@{/icons/icon.svg}">
     <link rel="apple-touch-icon" th:href="@{/icons/icon-192.png}">
+    <!--/* Both faces render above the fold; crossorigin is required for font preloads even on the same host. */-->
+    <link rel="preload" th:href="@{/vendor/fonts/source-sans-3-latin-wght-normal.woff2}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" th:href="@{/vendor/fonts/fraunces-latin-wght-normal.woff2}" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" th:href="@{/vendor/pico.min.css}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
     <script th:src="@{/vendor/htmx.min.js}" defer></script>

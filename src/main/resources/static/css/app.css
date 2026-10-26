@@ -1,6 +1,12 @@
 /* Centry brand over Pico. Tokens come from the Centry design system (tokens.json); Pico's own variables are
    pointed at them, and the rest of this file holds what Pico has no class for. */
 
+/* Self-hosted (static/vendor/fonts, SIL OFL 1.1); nothing is fetched from another host. Latin subset. */
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url("../vendor/fonts/fraunces-latin-wght-normal.woff2") format("woff2"); }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap;
+    src: url("../vendor/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2"); }
+
 /* ---- Tokens: parchment by day, forest floor by night ---- */
 :root {
     --surface: #f5f1e8;
@@ -39,7 +45,7 @@
     --tap-target: 44px;
     --content-max: 640px;
     --tabbar-height: 64px;
-    /* Fraunces and Source Sans 3 when installed; nothing is fetched, so these fall back to system faces. */
+    /* Vendored faces (see @font-face above); the system faces cover any glyph outside the latin subset. */
     --font-display: "Fraunces", Georgia, serif;
     --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
 }
