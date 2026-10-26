@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IconsTest {
 
     private static final List<String> NAMES = List.of("edit", "delete", "settings", "add", "home", "budgets",
-            "logout", "close", "back", "more", "check", "warning", "error");
+            "logout", "close", "back", "more", "check", "warning", "error", "subscriptions");
 
     @Autowired
     private SpringTemplateEngine engine;

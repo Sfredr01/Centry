@@ -57,19 +57,36 @@ public class AlertDispatcher {
                     alert.getCategory(), alert.getCurrentSpend(), alert.getWarningThreshold(), alert.getMessage());
         }
 
-        boolean delivered = true;
-        for (Notifier notifier : notifiers) {
-            try {
-                notifier.send(alert);
-            } catch (RuntimeException e) {
-                delivered = false;
-                log.error("{} failed for alert {} on category [{}]: {}", notifier.getClass().getSimpleName(),
-                        alert.getAlertId(), alert.getCategory(), e.getMessage());
-            }
-        }
+        boolean delivered = broadcast(toNotification(alert),
+                "alert " + alert.getAlertId() + " on category [" + alert.getCategory() + "]");
         if (delivered) {
             alerts.markNotified(alert.getAlertId(), LocalDateTime.now(clock));
         }
         return delivered;
+    }
+
+    /**
+     * Sends to every configured notifier and reports whether all of them accepted it (vacuously true with none).
+     * A failing notifier is logged, never thrown; {@code what} names the subject in that log line.
+     */
+    public boolean broadcast(Notification notification, String what) {
+        boolean delivered = true;
+        for (Notifier notifier : notifiers) {
+            try {
+                notifier.send(notification);
+            } catch (RuntimeException e) {
+                delivered = false;
+                log.error("{} failed for {}: {}", notifier.getClass().getSimpleName(), what, e.getMessage());
+            }
+        }
+        return delivered;
+    }
+
+    // Titles, bodies, priorities and tags are what the ntfy and webhook channels sent before Notification existed.
+    static Notification toNotification(BudgetAlertEvent alert) {
+        boolean limit = alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED;
+        return new Notification("Centry budget alert: " + alert.getCategory(), alert.getMessage(),
+                limit ? Notification.Priority.HIGH : Notification.Priority.DEFAULT,
+                List.of(limit ? "rotating_light" : "warning"));
     }
 }

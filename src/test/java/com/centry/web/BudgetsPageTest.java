@@ -229,6 +229,19 @@ class BudgetsPageTest {
     }
 
     @Test
+    void exportCardIsForAdminsWithTheCurrentMonthAsDefault() throws Exception {
+        Document page = Html.of(mockMvc.perform(get("/budgets").with(admin())).andExpect(status().isOk()));
+
+        var export = page.selectFirst("form[method=get][action=/export/expenses.csv]");
+        assertThat(export).isNotNull();
+        assertThat(export.select("input[name=from][type=date]").attr("value")).isEqualTo("2026-03-01");
+        assertThat(export.select("input[name=to][type=date]").attr("value")).isEqualTo("2026-03-31");
+
+        Document member = Html.of(mockMvc.perform(get("/budgets").with(mom())).andExpect(status().isOk()));
+        assertThat(member.select("form[action=/export/expenses.csv]")).isEmpty();
+    }
+
+    @Test
     void budgetsPageNeedsLogin() throws Exception {
         mockMvc.perform(get("/budgets").accept("text/html")).andExpect(status().isFound())
                 .andExpect(redirectedUrl("/login"));

@@ -160,7 +160,7 @@ details.dropdown.account-menu > summary + ul { left: auto; right: 0; min-width: 
 
 /* ---- Bottom tab bar: Dashboard, Add, Budgets ---- */
 body:has(.tabbar) { padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom)); }
-.tabbar { position: fixed; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(3, 1fr);
+.tabbar { position: fixed; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr);
     background: var(--surface-raised); box-shadow: var(--shadow-bar);
     padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom)); }
 .tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;

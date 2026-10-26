@@ -1,10 +1,8 @@
 package com.centry.notify;
 
-import com.centry.model.BudgetAlertEvent;
-
-/** One outbound channel for budget alerts. */
+/** One outbound channel for notifications. */
 public interface Notifier {
 
-    /** Delivers the alert; throws {@link NotificationException} on an I/O error or a non-2xx answer. */
-    void send(BudgetAlertEvent alert);
+    /** Delivers the notification; throws {@link NotificationException} on an I/O error or a non-2xx answer. */
+    void send(Notification notification);
 }

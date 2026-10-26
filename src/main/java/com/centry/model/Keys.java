@@ -1,8 +1,8 @@
 package com.centry.model;
 
 /**
- * The one definition of "same name" for categories and merchants: budgets, spend sums, alerts and the
- * previous-charge lookup all match on {@link #of}.
+ * The one definition of "same name" for categories and merchants: budgets, spend sums, alerts and
+ * subscriptions all match on {@link #of}.
  *
  * <p>It must equal SQLite's {@code lower(trim(x))}, which the spend and merchant queries use: trim strips only
  * spaces and lower folds only ASCII. Java's own trim/toLowerCase go further, so a name like "Épicerie" would

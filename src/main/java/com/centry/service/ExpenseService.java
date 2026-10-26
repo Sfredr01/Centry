@@ -1,11 +1,8 @@
 package com.centry.service;
 
 import com.centry.entity.ExpenseEntity;
-import com.centry.entity.SubscriptionAlertEntity;
-import com.centry.model.SubscriptionAlertEvent;
 import com.centry.dto.ExpenseEvent;
 import com.centry.repository.ExpenseRepository;
-import com.centry.repository.SubscriptionAlertRepository;
 import com.centry.repository.UserRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,38 +26,30 @@ public class ExpenseService {
     private static final Logger log = LoggerFactory.getLogger(ExpenseService.class);
 
     private final BudgetAlertPolicy budgetAlertPolicy;
-    private final SubscriptionTrackingService subscriptionTrackingService;
     private final ApplicationEventPublisher events;
     private final ExpenseRepository expenseRepository;
-    private final SubscriptionAlertRepository subscriptionAlertRepository;
     private final UserRepository users;
 
     private final Clock clock;
 
     private final Counter expensesConsumedCounter;
     private final Counter budgetAlertsCounter;
-    private final Counter subscriptionAlertsCounter;
     private final Timer expenseProcessingTimer;
 
     public ExpenseService(BudgetAlertPolicy budgetAlertPolicy,
-                           SubscriptionTrackingService subscriptionTrackingService,
                            ApplicationEventPublisher events,
                            ExpenseRepository expenseRepository,
-                           SubscriptionAlertRepository subscriptionAlertRepository,
                            UserRepository users,
                            MeterRegistry meterRegistry,
                            Clock clock) {
         this.budgetAlertPolicy = budgetAlertPolicy;
-        this.subscriptionTrackingService = subscriptionTrackingService;
         this.events = events;
         this.expenseRepository = expenseRepository;
-        this.subscriptionAlertRepository = subscriptionAlertRepository;
         this.users = users;
         this.clock = clock;
 
         this.expensesConsumedCounter = meterRegistry.counter("centry.expenses.consumed");
         this.budgetAlertsCounter = meterRegistry.counter("centry.budget.alerts.emitted");
-        this.subscriptionAlertsCounter = meterRegistry.counter("centry.subscription.alerts.emitted");
         this.expenseProcessingTimer = meterRegistry.timer("centry.expense.processing.duration");
     }
 
@@ -69,7 +58,7 @@ public class ExpenseService {
     }
 
     /**
-     * Single use case: persist, budget check, subscription check, alerts, metrics.
+     * Single use case: persist, budget check, alerts, metrics.
      *
      * <p>{@code transactionId} is the idempotency key: replaying an identical expense returns the stored one
      * untouched, replaying it with a different payload is a conflict. The expense and its alert rows commit
@@ -116,19 +105,6 @@ public class ExpenseService {
 
             // 2. Budget check: derived from the stored expenses, deduplicated per category, month and level.
             checkBudget(event.getCategory(), txTime);
-
-            // 3. Subscription price check against the merchant's previous charge, read from the database.
-            subscriptionTrackingService.checkPriceIncrease(saved).ifPresent(subscriptionAlert -> {
-                subscriptionAlertsCounter.increment();
-                log.warn("Triggering Subscription Alert: {}", subscriptionAlert.getMessage());
-
-                subscriptionAlertRepository.save(new SubscriptionAlertEntity(null, subscriptionAlert.getMerchant(),
-                        subscriptionAlert.getPreviousAmount(), subscriptionAlert.getCurrentAmount(),
-                        subscriptionAlert.getAnomalyType(), subscriptionAlert.getMessage(),
-                        subscriptionAlert.getTimestamp()));
-
-                events.publishEvent(subscriptionAlert);
-            });
 
             return new Recorded(saved, true);
         });

@@ -48,12 +48,33 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Native amd64 build proves the Dockerfile works without slow QEMU emulation.
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
+
+      # Native amd64 build proves the Dockerfile works without slow QEMU emulation. It is loaded into the local
+      # Docker daemon as centry:smoke, which smoke.sh, test-upgrade.sh and test-restore.sh then run.
       - name: Build image (no push)
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false
+          load: true
+          tags: centry:smoke
           platforms: linux/amd64
           cache-from: type=gha,scope=ci-amd64
           cache-to: type=gha,mode=max,scope=ci-amd64
+
+      - name: Smoke test
+        run: scripts/smoke.sh
+        env:
+          SMOKE_SKIP_BUILD: "1"
+
+      - name: Upgrade and rollback test
+        run: scripts/test-upgrade.sh
+
+      - name: Restore test
+        run: scripts/test-restore.sh
+
+      - name: Validate the Kafka override
+        run: |
+          printf 'CENTRY_TAG=ci\nCENTRY_ADMIN_PASSWORD=ci-password-123\n' > .env
+          docker compose -f docker-compose.yml -f docker-compose.kafka.yml config -q

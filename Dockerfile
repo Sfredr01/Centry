@@ -19,13 +19,14 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Create unprivileged application user
-RUN groupadd -r centry && useradd -r -g centry centry
+# Fixed uid/gid so the host data dir can be chowned to a known owner (10001:10001).
+RUN groupadd -g 10001 centry && useradd -r -u 10001 -g centry centry
 
 # Copy built artifact from builder stage
 COPY --from=builder /app/build/libs/centry.jar app.jar
 RUN chown -R centry:centry /app
 
-# SQLite lives in /data, which docker-compose.prod.yml mounts from the host so it survives container recreation.
+# SQLite lives in /data, which docker-compose.yml mounts from the host so it survives container recreation.
 ENV CENTRY_DATA_DIR=/data
 RUN mkdir -p /data && chown centry:centry /data
 
@@ -33,7 +34,7 @@ USER centry
 
 EXPOSE 8080
 
-ENV JAVA_TOOL_OPTIONS="-Xmx384m -Xms128m -XX:+UseG1GC"
+ENV JAVA_TOOL_OPTIONS="-Xmx256m -XX:+UseSerialGC"
 
 HEALTHCHECK --interval=15s --timeout=5s --retries=5 \
   CMD curl -f http://localhost:8080/actuator/health || exit 1

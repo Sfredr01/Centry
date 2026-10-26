@@ -3,7 +3,6 @@ package com.centry.service;
 import com.centry.repository.BudgetAlertRepository;
 import com.centry.repository.BudgetRepository;
 import com.centry.repository.ExpenseRepository;
-import com.centry.repository.SubscriptionAlertRepository;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 
 // A failure after the budget alert was published must undo the expense and keep the webhook silent.
 @SpringBootTest
@@ -69,13 +68,10 @@ class ExpenseServiceTransactionTest {
     private ExpenseRepository expenseRepository;
 
     @Autowired
-    private BudgetAlertRepository budgetAlertRepository;
-
-    @Autowired
     private BudgetRepository budgetRepository;
 
     @MockitoSpyBean
-    private SubscriptionAlertRepository subscriptionAlertRepository;
+    private BudgetAlertRepository budgetAlertRepository;
 
     @BeforeEach
     void clean() {
@@ -92,11 +88,12 @@ class ExpenseServiceTransactionTest {
 
     @Test
     void rollsBackOnDownstreamFailure() {
-        // First charge only seeds the merchant history, so no subscription alert yet.
         expenseService.record(event("tx-first", "10.00"), null);
-        // Second charge: over the limit (budget alert saved and published) and a price increase,
-        // whose alert row then fails to save.
-        doThrow(new IllegalStateException("boom")).when(subscriptionAlertRepository).save(any());
+        // Second charge goes over the limit: the budget alert row is stored, then the call fails after it.
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new IllegalStateException("boom");
+        }).when(budgetAlertRepository).insertIfAbsent(any(), any());
 
         assertThatThrownBy(() -> expenseService.record(event("tx-second", "120.00"), null))
                 .isInstanceOf(IllegalStateException.class).hasMessage("boom");

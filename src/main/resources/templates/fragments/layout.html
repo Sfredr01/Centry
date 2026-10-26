@@ -53,6 +53,8 @@
         <svg th:replace="~{fragments/icons :: add}"></svg></a>
     <a th:href="@{/budgets}" th:attr="aria-current=${title == 'Budgets'} ? 'page'">
         <svg th:replace="~{fragments/icons :: budgets}"></svg>Budgets</a>
+    <a th:href="@{/subscriptions}" th:attr="aria-current=${title == 'Subscriptions'} ? 'page'">
+        <svg th:replace="~{fragments/icons :: subscriptions}"></svg>Subs</a>
 </nav>
 </body>
 </html>
