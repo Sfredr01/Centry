@@ -60,7 +60,7 @@ public class AlertDispatcher {
         boolean delivered = true;
         for (Notifier notifier : notifiers) {
             try {
-                notifier.send(alert);
+                notifier.send(toNotification(alert));
             } catch (RuntimeException e) {
                 delivered = false;
                 log.error("{} failed for alert {} on category [{}]: {}", notifier.getClass().getSimpleName(),
@@ -71,5 +71,13 @@ public class AlertDispatcher {
             alerts.markNotified(alert.getAlertId(), LocalDateTime.now(clock));
         }
         return delivered;
+    }
+
+    // Titles, bodies, priorities and tags are what the ntfy and webhook channels sent before Notification existed.
+    static Notification toNotification(BudgetAlertEvent alert) {
+        boolean limit = alert.getAlertLevel() == BudgetLevel.LIMIT_EXCEEDED;
+        return new Notification("Centry budget alert: " + alert.getCategory(), alert.getMessage(),
+                limit ? Notification.Priority.HIGH : Notification.Priority.DEFAULT,
+                List.of(limit ? "rotating_light" : "warning"));
     }
 }

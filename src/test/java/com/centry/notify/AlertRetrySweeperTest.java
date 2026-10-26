@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,15 +74,9 @@ class AlertRetrySweeperTest {
 
         sweeper.sweep();
 
-        assertThat(notifier.sent()).singleElement().satisfies(event -> {
-            assertThat(event.getAlertId()).isEqualTo(id);
-            assertThat(event.getCategory()).isEqualTo("cat0");
-            assertThat(event.getMessage()).isEqualTo("msg cat0");
-            assertThat(event.getAlertLevel()).isEqualTo(BudgetLevel.WARNING_EXCEEDED);
-            assertThat(event.getCurrentSpend()).isEqualByComparingTo("90.00");
-            assertThat(event.getMonthlyLimit()).isEqualByComparingTo("100.00");
-            assertThat(event.getWarningThreshold()).isEqualByComparingTo("80.00");
-        });
+        assertThat(notifier.sent()).containsExactly(new Notification("Centry budget alert: cat0", "msg cat0",
+                Notification.Priority.DEFAULT, List.of("warning")));
+        assertThat(notifiedAt(id)).isPresent();
     }
 
     @Test
@@ -91,7 +86,8 @@ class AlertRetrySweeperTest {
 
         sweeper.sweep();
 
-        assertThat(notifier.sent()).extracting(BudgetAlertEvent::getCategory).containsExactlyInAnyOrder("cat0", "cat1");
+        assertThat(notifier.sent()).extracting(Notification::title)
+                .containsExactlyInAnyOrder("Centry budget alert: cat0", "Centry budget alert: cat1");
     }
 
     @Test
