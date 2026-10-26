@@ -4,6 +4,7 @@
 #
 # Env: CENTRY_PORT (host port of the app, default 8080), CENTRY_NTFY_PORT (default 18080),
 #      COMPOSE_FILES (compose -f args, default docker-compose.yml + docker-compose.smoke.yml),
+#      SMOKE_SKIP_BUILD=1 (use the existing centry:smoke image instead of building it, as CI does),
 #      KEEP=1 (leave the stack and temp dir running for debugging).
 set -euo pipefail
 
@@ -107,7 +108,11 @@ expect_pushes_stable() {
 }
 
 step "start stack"
-dc up -d --build
+if [ "${SMOKE_SKIP_BUILD:-0}" = 1 ]; then
+    dc up -d
+else
+    dc up -d --build
+fi
 wait_healthy
 
 step "health shows no details, metrics are not exposed"
