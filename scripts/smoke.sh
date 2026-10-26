@@ -13,7 +13,7 @@ NTFY_PORT=${CENTRY_NTFY_PORT:-18080}
 BASE="http://localhost:${PORT}"
 NTFY="http://127.0.0.1:${NTFY_PORT}/centry-smoke"
 COMPOSE_FILES=${COMPOSE_FILES:--f ${ROOT}/docker-compose.yml -f ${ROOT}/docker-compose.smoke.yml}
-ADMIN_USER=admin
+ADMIN_USER="admin"
 ADMIN_PASSWORD=smoke-test-password-123
 RSS_LIMIT_MIB=400
 
