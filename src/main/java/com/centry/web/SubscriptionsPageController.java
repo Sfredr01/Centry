@@ -5,7 +5,6 @@ import com.centry.model.SubscriptionCadence;
 import com.centry.model.SubscriptionStatus;
 import com.centry.repository.SubscriptionRepository;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -26,7 +25,6 @@ import java.time.format.DateTimeParseException;
  * are admin-only in {@code SecurityConfig}, like budgets. Plain forms with post/redirect/get.
  */
 @Controller
-@RequiredArgsConstructor
 class SubscriptionsPageController {
 
     private static final String REDIRECT = "redirect:/subscriptions";
@@ -35,6 +33,11 @@ class SubscriptionsPageController {
 
     private final SubscriptionRepository subscriptions;
     private final Clock clock;
+
+    SubscriptionsPageController(SubscriptionRepository subscriptions, Clock clock) {
+        this.subscriptions = subscriptions;
+        this.clock = clock;
+    }
 
     /** The values of a submitted form once they have been checked. */
     private record Fields(String name, SubscriptionCadence cadence, BigDecimal amount, LocalDate nextDue) {
