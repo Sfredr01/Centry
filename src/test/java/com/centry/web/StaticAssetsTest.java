@@ -100,6 +100,15 @@ class StaticAssetsTest {
     }
 
     @Test
+    void appCssStylesIconsAndTheirButtons() throws Exception {
+        String css = mockMvc.perform(get("/css/app.css")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Without these an inline svg renders at its full size.
+        assertThat(css).contains(".icon {", ".icon-btn {", ".avatar {");
+    }
+
+    @Test
     void appCssLoadsNothingFromOtherHosts() throws Exception {
         String css = mockMvc.perform(get("/css/app.css")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

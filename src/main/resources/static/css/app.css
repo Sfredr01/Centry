@@ -239,6 +239,8 @@ progress[data-level="LIMIT_EXCEEDED"] { --pico-progress-color: var(--rust); }
 .card-actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; gap: var(--space-1); }
 .card--has-actions .card-head, .card--has-actions .budget-figures .head {
     padding-right: calc(var(--tap-target) + var(--space-2)); }
+/* Tall enough that the bar starts below the pencil's 44px target. */
+.card--has-actions .budget-figures .head { min-height: 36px; align-items: center; }
 
 /* ---- Budgets page: the pencil sits top right, the editor opens below it inside the card ---- */
 #budgets { display: grid; gap: var(--space-3); margin-bottom: var(--space-6); }
@@ -259,3 +261,15 @@ details.budget-edit[open] > summary.icon-btn { background: var(--surface-sunken)
 .notice--success { background: var(--fern-soft); color: var(--forest); }
 .notice--warning { background: var(--ochre-soft); color: var(--ochre); }
 .notice--error { background: var(--rust-soft); color: var(--rust); }
+
+/* ---- Icons: fragments/icons.html, drawn in the text colour ---- */
+.icon { width: 24px; height: 24px; flex: none; vertical-align: middle; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* A control that is only an icon: 44px target, named by aria-label and title. */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: var(--tap-target); height: var(--tap-target); margin: 0; padding: 0; border: 0;
+    border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); }
+.icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
+.icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* An icon next to a word inside a normal button or link. */
+button .icon, [role="button"] .icon { width: 20px; height: 20px; margin-inline-end: var(--space-2); vertical-align: -4px; }
