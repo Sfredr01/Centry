@@ -90,6 +90,28 @@ plain HTTP while this is `true`, so set it only once you use HTTPS.
 
 In the phone browser, open the HTTPS address and use "Add to Home Screen".
 
+## API tokens (phone shortcuts)
+
+A token lets a phone shortcut record an expense without your password on the phone. It works for
+`POST /api/v1/expenses` only: any other path with a token gets `403`, and a bad or revoked token gets `401`.
+Expenses are attributed to the token's owner. Issue a token with your password (a token cannot issue tokens):
+
+```bash
+curl -u sam -H 'Content-Type: application/json' -d '{"name":"Sam iPhone"}' \
+  https://centry.example/api/v1/tokens
+# {"id":1,"name":"Sam iPhone","token":"centry_..."}   <- shown once, copy it now
+```
+
+iOS Shortcuts, action "Get contents of URL":
+
+1. URL: `https://centry.example/api/v1/expenses`, Method: `POST`.
+2. Headers: `Authorization` = `Bearer centry_...`, `Content-Type` = `application/json`.
+3. Request Body: `JSON`, with `merchant` (Text), `amount` (Number) and `category` (Text).
+4. Add "Ask for Input" actions before it and use their results as the field values.
+
+Tasker's HTTP Request action takes the same URL, header and body. List your tokens with
+`GET /api/v1/tokens`. Revoke a lost one with `curl -u sam -X DELETE https://centry.example/api/v1/tokens/1`.
+
 ## Notifications
 
 Both channels are optional. Set the variables in `.env`, then run `docker compose up -d`.
@@ -189,6 +211,8 @@ has no authentication. It advertises itself as `kafka:9092`, so a producer on th
 ## API reference
 
 All `/api/**` calls use HTTP Basic authentication with a username and password. Anonymous calls get `401`.
+A per-user API token (`Authorization: Bearer ...`) works for `POST /api/v1/expenses` only; see
+[API tokens](#api-tokens-phone-shortcuts).
 
 | Method and path | Who | Purpose |
 |---|---|---|
@@ -199,6 +223,9 @@ All `/api/**` calls use HTTP Basic authentication with a username and password. 
 | `DELETE /api/v1/budgets/{category}` | admin | Remove a budget. |
 | `GET /api/v1/users` | admin | List members. |
 | `POST /api/v1/users` | admin | Add a member. |
+| `POST /api/v1/tokens` | admin, member (Basic only) | Issue an API token. The token is shown once. |
+| `GET /api/v1/tokens` | admin, member (Basic only) | List your own tokens (no secrets). |
+| `DELETE /api/v1/tokens/{id}` | admin, member (Basic only) | Revoke one of your tokens. `404` for anyone else's. |
 | `GET /export/expenses.csv?from=YYYY-MM-DD&to=YYYY-MM-DD` | admin | Download expenses as CSV (browser session; both dates required and inclusive). |
 
 Record an expense. `spentBy` is a member id from `GET /api/v1/users`. It is optional and defaults to the caller.

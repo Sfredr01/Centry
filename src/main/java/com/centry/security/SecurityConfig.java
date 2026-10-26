@@ -1,5 +1,6 @@
 package com.centry.security;
 
+import com.centry.repository.ApiTokenRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenBasedRememberMeServices;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -22,6 +24,7 @@ import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import javax.sql.DataSource;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -29,7 +32,9 @@ import java.util.UUID;
  * Two kinds of clients share one filter chain:
  * <ul>
  *   <li>browsers: form login on our own {@code /login} page, session cookie, persistent remember-me;</li>
- *   <li>API clients (curl, phone shortcuts): HTTP Basic on {@code /api/**}.</li>
+ *   <li>API clients (curl, phone shortcuts): HTTP Basic on {@code /api/**};</li>
+ *   <li>phone shortcuts without a password on the phone: a per-user bearer token, accepted only for recording
+ *       an expense (see {@link BearerTokenFilter}).</li>
  * </ul>
  */
 @Configuration
@@ -88,7 +93,8 @@ public class SecurityConfig {
 
         @Bean
         SecurityFilterChain securityFilterChain(HttpSecurity http,
-                PersistentTokenBasedRememberMeServices rememberMeServices) {
+                PersistentTokenBasedRememberMeServices rememberMeServices, ApiTokenRepository apiTokens,
+                Clock clock) {
             // Non-default: a bare 401 with NO WWW-Authenticate header. A Basic challenge would make browsers show a
             // password prompt and then cache the credentials and re-send them on their own (which is what makes
             // Basic CSRF-able). API clients send Basic pre-emptively and need no challenge.
@@ -112,6 +118,8 @@ public class SecurityConfig {
                             .requestMatchers(API).hasAnyRole("ADMIN", "MEMBER")
                             .anyRequest().authenticated())
                     .httpBasic(basic -> basic.authenticationEntryPoint(unauthorized))
+                    // Before Basic: a Bearer header is ours to answer (401/403), never Basic's to misread.
+                    .addFilterBefore(new BearerTokenFilter(apiTokens, clock), BasicAuthenticationFilter.class)
                     .formLogin(form -> form.loginPage("/login").permitAll())
                     // permitAll() lets the anonymous browser reach the post-logout /login?logout page.
                     .logout(logout -> logout.permitAll())
