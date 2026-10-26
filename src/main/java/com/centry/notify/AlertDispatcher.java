@@ -57,18 +57,27 @@ public class AlertDispatcher {
                     alert.getCategory(), alert.getCurrentSpend(), alert.getWarningThreshold(), alert.getMessage());
         }
 
+        boolean delivered = broadcast(toNotification(alert),
+                "alert " + alert.getAlertId() + " on category [" + alert.getCategory() + "]");
+        if (delivered) {
+            alerts.markNotified(alert.getAlertId(), LocalDateTime.now(clock));
+        }
+        return delivered;
+    }
+
+    /**
+     * Sends to every configured notifier and reports whether all of them accepted it (vacuously true with none).
+     * A failing notifier is logged, never thrown; {@code what} names the subject in that log line.
+     */
+    public boolean broadcast(Notification notification, String what) {
         boolean delivered = true;
         for (Notifier notifier : notifiers) {
             try {
-                notifier.send(toNotification(alert));
+                notifier.send(notification);
             } catch (RuntimeException e) {
                 delivered = false;
-                log.error("{} failed for alert {} on category [{}]: {}", notifier.getClass().getSimpleName(),
-                        alert.getAlertId(), alert.getCategory(), e.getMessage());
+                log.error("{} failed for {}: {}", notifier.getClass().getSimpleName(), what, e.getMessage());
             }
-        }
-        if (delivered) {
-            alerts.markNotified(alert.getAlertId(), LocalDateTime.now(clock));
         }
         return delivered;
     }
