@@ -14,7 +14,7 @@ server's locale. Machine values stay raw: `progress` value/max and `input` value
 ## Icons
 
 `fragments/icons.html`, one fragment per icon: `edit`, `delete`, `settings`, `add`, `home`, `budgets`,
-`logout`, `close`, `back`, `more`, `check`, `warning`, `error`. All are 24 px outlines with a 2 px stroke, drawn
+`logout`, `close`, `back`, `more`, `check`, `warning`, `error`, `subscriptions`. All are 24 px outlines with a 2 px stroke, drawn
 in the text colour by `.icon`. `close`, `back` and `more` are not used yet.
 
 ```html
